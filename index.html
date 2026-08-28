@@ -870,14 +870,17 @@ function findRootMatch(base, entries, targetPos){
   return null;
 }
 // 扩展词规则：n→v/adj/adv/复数；v→n/adj/adv/过去式/过去分词/现在分词/三单；adj→n/v/adv；adv→n/v/adj；其他词性无扩展
+const EXT_PLAN = {
+  n:   [['v','动词形式'],['adj','形容词形式'],['adv','副词形式'],['plural','复数']],
+  v:   [['n','名词形式'],['adj','形容词形式'],['adv','副词形式'],['past','过去式'],['pp','过去分词'],['ing','现在分词'],['s','第三人称单数']],
+  vt:  [['n','名词形式'],['adj','形容词形式'],['adv','副词形式'],['past','过去式'],['pp','过去分词'],['ing','现在分词'],['s','第三人称单数']],
+  vi:  [['n','名词形式'],['adj','形容词形式'],['adv','副词形式'],['past','过去式'],['pp','过去分词'],['ing','现在分词'],['s','第三人称单数']],
+  adj: [['n','名词形式'],['v','动词形式'],['adv','副词形式']],
+  adv: [['n','名词形式'],['v','动词形式'],['adj','形容词形式']]
+};
 function buildExtWords(entry, entries){
   const first = firstPosEn(entry);
-  let plan = [];
-  if (first==='n') plan = [['v','动词形式'],['adj','形容词形式'],['adv','副词形式'],['plural','复数']];
-  else if (first==='v'||first==='vt'||first==='vi') plan = [['n','名词形式'],['adj','形容词形式'],['adv','副词形式'],['past','过去式'],['pp','过去分词'],['ing','现在分词'],['s','第三人称单数']];
-  else if (first==='adj') plan = [['n','名词形式'],['v','动词形式'],['adv','副词形式']];
-  else if (first==='adv') plan = [['n','名词形式'],['v','动词形式'],['adj','形容词形式']];
-  else return [];
+  const plan = EXT_PLAN[first] || [];
   const w = String(entry.word);
   const out = [];
   for (const [type, label] of plan){
@@ -895,6 +898,130 @@ function gradeExts(q){
   const correct = q.exts || [];
   const ans = (q.answer && q.answer.exts) || [];
   return correct.map((e,i)=>({label:e.label, word:e.word, ok: normText(ans[i]||'') === normText(e.word)}));
+}
+
+/* ================= 词性转换：从在线词典自动匹配生成 ================= */
+// 免费免 key 的正规词典 API（数据源自 Wiktionary 词典项目），用于校验派生词是否真实存在及词性
+const DICT_API = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
+const POS_TO_DICT = {n:'noun', v:'verb', adj:'adjective', adv:'adverb'};
+// 派生后缀候选（按可能性排序；命中即停）
+const DERIV_SUFFIX = {
+  n:   ['ion','tion','ation','ment','ness','ity','ance','ence','er','or','ist','ism','al','ing'],
+  v:   ['ize','ise','ify','ate','en'],
+  adj: ['ive','able','ible','ful','less','ous','al','ic','ish','ent','ant','ary','y'],
+  adv: ['ively','ably','ibly','fully','lessly','ously','ically','ally','ily','ly']
+};
+const LABEL_ORDER = ['名词形式','动词形式','形容词形式','副词形式','复数','过去式','过去分词','现在分词','第三人称单数'];
+const DERIV_TYPES = ['n','v','adj','adv'];   // 需要词典校验的词性转换（复数/时态等按规则生成）
+
+// 生成候选派生词：act → action / active / actively …
+function derivCandidates(base, targetPos){
+  const b = String(base||'').toLowerCase();
+  const suffixes = DERIV_SUFFIX[targetPos] || [];
+  const stems = [b];
+  if (b.length > 3 && b.endsWith('e')) stems.push(b.slice(0,-1));        // create → creat+ion
+  if (b.length > 2 && b.endsWith('y')) stems.push(b.slice(0,-1)+'i');    // happy → happi+ness
+  const out = [];
+  for (const st of stems){
+    for (const suf of suffixes){
+      const w = st + suf;
+      if (w !== b && w.indexOf(' ') < 0 && out.indexOf(w) < 0) out.push(w);
+    }
+  }
+  return out;
+}
+
+// 词典查询（带内存缓存 + localStorage 持久化，网络失败返回 null 且不缓存，允许下次重试）
+const _dictCache = {};
+function dictCacheLoad(){
+  try{
+    const raw = localStorage.getItem('wt_dict_cache');
+    if (raw) Object.assign(_dictCache, JSON.parse(raw) || {});
+  }catch(e){}
+}
+function dictCacheSave(){
+  try{
+    const keys = Object.keys(_dictCache);
+    if (keys.length > 3000) keys.slice(0, 1500).forEach(k => delete _dictCache[k]); // 控制体积
+    localStorage.setItem('wt_dict_cache', JSON.stringify(_dictCache));
+  }catch(e){}
+}
+async function dictFetch(w){
+  try{
+    const ctrl = new AbortController();
+    const timer = setTimeout(()=>ctrl.abort(), 6000);
+    const r = await fetch(DICT_API + encodeURIComponent(w), {signal: ctrl.signal});
+    clearTimeout(timer);
+    return r;
+  }catch(e){ return null; }
+}
+async function dictPoses(word){
+  const w = String(word||'').toLowerCase();
+  if (!w) return null;
+  if (w in _dictCache){
+    return _dictCache[w] ? new Set(_dictCache[w]) : null;
+  }
+  let r = await dictFetch(w);
+  if (!r || (!r.ok && r.status !== 404)) r = await dictFetch(w); // 网络/服务端异常重试一次（404=确定不存在，不重试）
+  if (!r) return null;                                            // 网络失败：不缓存，允许下次重试
+  if (!r.ok){ _dictCache[w] = null; dictCacheSave(); return null; } // 不存在：缓存为 null
+  try{
+    const data = await r.json();
+    const poses = new Set();
+    (Array.isArray(data) ? data : []).forEach(d => (d.meanings||[]).forEach(m => {
+      const p = String(m.partOfSpeech||'').toLowerCase();
+      if (p) poses.add(p);
+    }));
+    _dictCache[w] = Array.from(poses);
+    dictCacheSave();
+    return poses;
+  }catch(e){ return null; }
+}
+
+// 为题目补齐「词性转换」扩展词：候选派生词逐个查词典，确认存在且为目标词性才采用
+// 网络异常/超时则保留原有（规则变形 + 词库同词根）结果，不影响测试进行
+async function enrichExtWithDict(questions, onProgress){
+  dictCacheLoad();
+  const tasks = [];
+  (questions||[]).forEach(q => {
+    const pos = firstPosEn(q.entry);
+    const plan = EXT_PLAN[pos] || [];
+    const have = new Set((q.exts||[]).map(e => e.label));
+    plan.forEach(([type, label]) => {
+      if (DERIV_TYPES.indexOf(type) < 0) return;      // 复数/时态等已按规则生成
+      if (have.has(label)) return;                    // 词库内已匹配到同词根
+      tasks.push({q, type, label});
+    });
+  });
+  if (!tasks.length) return 0;
+  const deadline = Date.now() + 25000;                // 总超时保护：25 秒后放弃剩余
+  let done = 0, idx = 0;
+  const worker = async () => {
+    while (idx < tasks.length){
+      if (Date.now() > deadline) break;
+      const t = tasks[idx++];
+      const cands = derivCandidates(t.q.entry.word, t.type);
+      for (const c of cands){
+        if (Date.now() > deadline) break;
+        const poses = await dictPoses(c);
+        if (poses && poses.has(POS_TO_DICT[t.type])){
+          t.q.exts.push({label: t.label, word: c});
+          break;                                       // 命中即停，节省请求
+        }
+      }
+      done++;
+      if (onProgress) onProgress(done, tasks.length);
+    }
+  };
+  const CONC = 6;
+  await Promise.all(Array.from({length: Math.min(CONC, tasks.length)}, worker));
+  // 按固定顺序重排扩展词（名词→动词→形容词→副词→复数→时态）
+  (questions||[]).forEach(q => {
+    if (q.exts && q.exts.length){
+      q.exts.sort((a,b) => LABEL_ORDER.indexOf(a.label) - LABEL_ORDER.indexOf(b.label));
+    }
+  });
+  return done;
 }
 </script>
 
@@ -1081,7 +1208,7 @@ function loadSettings(){
   }catch(e){}
 }
 
-$('startBtn').onclick = () => {
+$('startBtn').onclick = async () => {
   const i = parseInt($('selLib').value,10);
   if (isNaN(i) || !libraries[i]){ alert('请先在「① 词库」导入单词表，再选择词库。'); switchTab('lib'); return; }
   const lib = libraries[i];
@@ -1108,6 +1235,17 @@ $('startBtn').onclick = () => {
   localStorage.setItem(LS.student, student);
   renderStudentList();
   saveSettings(); // 记住本次设置，下次测试自动恢复
+  // 勾选扩展词：从在线词典自动匹配「词性转换」扩展词（网络失败/超时自动回退为规则结果）
+  if ($('extToggle').checked){
+    const prevWarn = $('testWarn').textContent;
+    $('testWarn').textContent = '🔍 正在从在线词典匹配扩展词…';
+    try{
+      await enrichExtWithDict(session.questions, (d,t) => {
+        $('testWarn').textContent = `🔍 正在从在线词典匹配扩展词… ${d}/${t}`;
+      });
+    }catch(e){}
+    $('testWarn').textContent = prevWarn;
+  }
   openExam();
 };
 
