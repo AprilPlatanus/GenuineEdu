@@ -247,21 +247,38 @@ footer code{color:var(--gold2)}
 }
 #exTimer.warn{color:#fff;background:var(--bad);border-color:var(--bad);animation:exblink .5s infinite}
 @keyframes exblink{50%{opacity:.45}}
+.fb{
+  margin-top:12px;border-radius:12px;padding:12px 16px;font-size:14px;line-height:1.9;
+  border:1px solid var(--line);background:var(--panel2);max-height:24vh;overflow-y:auto;
+}
+.fb.correct{border-color:var(--good)}
+.fb.wrong{border-color:var(--bad)}
+.fb .fb-title{font-weight:800;font-size:16px;margin-bottom:6px}
+.fb.correct .fb-title{color:var(--good)}
+.fb.wrong .fb-title{color:var(--bad)}
+.fb .fb-ans{font-family:Georgia,serif;font-size:22px;letter-spacing:2px;color:var(--gold2);font-weight:700}
+.fb .fb-senses{color:var(--text2);font-size:13px;margin-top:4px}
+.fb .fb-your{color:var(--text2);font-size:13px;margin-top:2px}
+.fb .fb-exts{font-size:13px;margin-top:8px;line-height:1.9}
+.fb .fb-exts b{font-family:Georgia,serif;letter-spacing:1px}
 /* 只拼写模式：拼写输入框占据答题主体 */
 .spell-only .exam{max-width:880px}
 .spell-only .q-ask{font-size:20px;margin-bottom:30px}
 .spell-only .q-ask b{font-size:30px}
 .spell-only .spell-input{font-size:64px;letter-spacing:10px;padding:30px 18px;min-height:130px}
-/* 普通模式（需输入词性+释义）：整卡一屏显示、无需滚动；拼写框约占一半、释义框约占三分之一 */
-.overlay:not(.spell-only) .exam{display:flex;flex-direction:column;height:88vh;box-sizing:border-box}
+.spell-only #extWrap{max-height:26vh;overflow-y:auto}
+/* 普通模式（需输入词性+释义）：整卡一屏显示、无需滚动；按钮始终可见；拼写框约占一半、释义框约占三分之一 */
+.overlay:not(.spell-only) .exam{display:flex;flex-direction:column;height:92vh;box-sizing:border-box}
 .overlay:not(.spell-only) .exam-top,
 .overlay:not(.spell-only) .progress-bar,
 .overlay:not(.spell-only) .q-ask,
 .overlay:not(.spell-only) .exam > label,
 .overlay:not(.spell-only) .enter-tip,
 .overlay:not(.spell-only) .nav-btns{flex:0 0 auto}
-.overlay:not(.spell-only) .spell-input{flex:3 1 auto;min-height:96px;font-size:56px;letter-spacing:6px;padding:26px 16px}
-.overlay:not(.spell-only) #inOther{flex:2 1 auto;min-height:72px;font-size:13px;max-height:none}
+.overlay:not(.spell-only) #extWrap{flex:0 1 auto;min-height:0;max-height:26vh;overflow-y:auto}
+.overlay:not(.spell-only) .fb{flex:0 1 auto;min-height:0;max-height:24vh;overflow-y:auto}
+.overlay:not(.spell-only) .spell-input{flex:3 1 auto;min-height:80px;font-size:56px;letter-spacing:6px;padding:26px 16px}
+.overlay:not(.spell-only) #inOther{flex:2 1 auto;min-height:60px;font-size:13px;max-height:none}
 @media print{header,.tabs,footer,.no-print{display:none!important}}
 </style>
 </head>
@@ -455,6 +472,7 @@ footer code{color:var(--gold2)}
     <div id="extWrap"></div>
     <label id="lblOther" for="inOther">✏️ 其余词性 + 对应中文释义（多个用回车 / 逗号 / 分号分隔） <span class="ime-tag">中文</span></label>
     <textarea id="inOther" rows="2" lang="zh-CN" inputmode="text" placeholder="示例：&#10;n. 放纵&#10;adj. 疯狂的"></textarea>
+    <div id="fbArea" class="fb hidden"></div>
     <div id="enterTip" class="enter-tip"></div>
     <div class="nav-btns">
       <button class="btn ghost danger" id="directSubmitBtn">📮 直接交卷</button>
@@ -1072,6 +1090,7 @@ $('startBtn').onclick = () => {
   session.limit = timeLimit;         // 每题限时（秒），0 = 不限时
   session.showAll = $('senseShow').value === 'all'; // 全部显示词性释义（只考拼写）
   session.wrongRule = $('wrongRule').value;         // 判错标准
+  fbPending = false;
   localStorage.setItem(LS.student, student);
   renderStudentList();
   saveSettings(); // 记住本次设置，下次测试自动恢复
@@ -1081,6 +1100,7 @@ $('startBtn').onclick = () => {
 /* ---------- 考试 ---------- */
 let examTimer = null, timeLeft = 0;
 let blankChars = [];   // 补全字符数组：'' = 待填空位
+let fbPending = false; // 即时反馈等待「继续」状态
 function blankDisplay(arr){ return arr.map(c=>c===''?'_':c).join(''); }
 function openExam(){
   grading = null;
@@ -1160,6 +1180,7 @@ function renderQuestion(){
     : '';
   $('nextBtn').style.display = session.idx===n-1 ? 'none' : '';
   $('submitBtn').style.display = session.idx===n-1 ? '' : 'none';
+  hideFeedback();
   // 回车跳题提示：按当前模式显示对应文案
   const hasExtInput = !!document.querySelector('#extArea .ext-input');
   $('enterTip').textContent = hasExtInput
@@ -1179,12 +1200,74 @@ function saveAnswer(){
     exts: [...extInputs].map(x=>x.value)
   };
 }
+function showFeedback(g, q){
+  const fb = $('fbArea');
+  const senses = q.entry.senses.map(s=>`${esc(s.pos||'')} ${esc(s.meaning||'')}`).join('　｜　');
+  const your = (q.answer && q.answer.spelling) || '';
+  if (g.correct){
+    fb.className = 'fb correct';
+    fb.innerHTML = `<div class="fb-title">✓ 回答正确</div>
+      <div class="fb-ans">${esc(your)}</div>
+      <div class="fb-senses">${senses}</div>`;
+  } else {
+    fb.className = 'fb wrong';
+    fb.innerHTML = `<div class="fb-title">✗ 回答错误</div>
+      <div class="fb-ans">正确答案：${esc(q.entry.word)}</div>
+      <div class="fb-your">你的答案：${esc(your) || '（未作答）'}</div>
+      <div class="fb-senses">词性释义：${senses}</div>`;
+  }
+  fb.classList.remove('hidden');
+  // 扩展词判定结果：追加显示 + 输入框标色锁定
+  const extRes = g.extResults || [];
+  if (extRes.length){
+    const extAns = (q.answer && q.answer.exts) || [];
+    const extRows = extRes.map((r,i)=>`${esc(r.label)} <b class="${r.ok?'ok':'bad'}">${esc(r.word)}</b>${r.ok ? '' : '（你填：' + esc(extAns[i] || '—') + '）'}`).join('　｜　');
+    fb.innerHTML += `<div class="fb-exts">🧩 扩展词：${extRows}</div>`;
+    document.querySelectorAll('#extArea .ext-input').forEach((inp,i)=>{
+      const r = extRes[i];
+      if (r) inp.classList.add(r.ok ? 'ok' : 'bad');
+      inp.disabled = true;
+    });
+  }
+  $('enterTip').textContent = '⌨️ 按 Enter 继续进入下一题';
+}
+function hideFeedback(){
+  $('fbArea').classList.add('hidden');
+  $('fbArea').innerHTML = '';
+  $('nextBtn').textContent = '下一题 →';
+  $('submitBtn').textContent = '✅ 交卷';
+}
 $('nextBtn').onclick = () => {
+  if (fbPending){ // 反馈后：非最后一题 → 下一题；最后一题 → 直接查看成绩（修复回车无法提交）
+    fbPending = false;
+    if (session.idx === session.questions.length-1){ finishExam(true); return; }
+    session.idx++;
+    renderQuestion();
+    return;
+  }
   saveAnswer();
   const isLast = session.idx === session.questions.length-1;
-  // 无即时反馈：直接进入下一题 / 最后一题交卷出成绩
-  if (isLast) finishExam(true);
-  else { session.idx++; renderQuestion(); }
+  // 限时模式：不打断节奏，直接跳题/交卷
+  if (session.limit > 0){
+    if (isLast) finishExam(true);
+    else { session.idx++; renderQuestion(); }
+    return;
+  }
+  // 非限时：立即批改本题并显示对错与正确答案（遵循判错标准）
+  const g0 = gradeQuestion(session.questions[session.idx], session.matchMode, session.showAll);
+  const g = session.wrongRule === 'spelling'
+    ? {spellingOk: g0.spellingOk, senseResults: [], extResults: g0.extResults, correct: g0.spellingOk && (g0.extResults||[]).every(r => r.ok)}
+    : g0;
+  showFeedback(g, session.questions[session.idx]);
+  fbPending = true;
+  if (isLast){
+    $('nextBtn').style.display = 'none';
+    $('submitBtn').style.display = '';
+    $('submitBtn').textContent = '✅ 查看成绩';
+    $('enterTip').textContent = '⌨️ 按 Enter 查看成绩';
+  } else {
+    $('nextBtn').textContent = '继续 ▶';
+  }
 };
 /* ---------- 保存 / 恢复进度 ---------- */
 function saveProgress(){
@@ -1217,6 +1300,7 @@ function restoreProgress(){
     };
     $('wrongRule').value = snap.wrongRule || 'any';
     session._resumeBlank = snap.blank || [];
+    fbPending = false;
     localStorage.removeItem(LS.pending);
     return true;
   }catch(e){ return false; }
@@ -1255,7 +1339,14 @@ function finishExam(silent){
   switchTab('result');
 }
 $('directSubmitBtn').onclick = () => finishExam(false);
-$('submitBtn').onclick = () => finishExam(false);
+$('submitBtn').onclick = () => {
+  if (fbPending){ // 已看过最后一题反馈 → 直接查看成绩
+    fbPending = false;
+    finishExam(true);
+    return;
+  }
+  finishExam(false);
+};
 
 /* ---------- 结果 ---------- */
 function renderResult(){
@@ -1556,11 +1647,13 @@ function toHalfWidth(s){
 // - 仅拼写 / 全部显示模式（无释义输入框）：回车直接下一题
 // - 普通模式（有释义输入框）：回车先把焦点移到释义框；释义框内 Ctrl/Cmd+Enter 跳题，
 //   普通回车在释义框内仍用于换行分隔多个释义，故不抢占
+// - 已显示对错反馈时（fbPending）：回车直接「继续」进入下一题
 // - 最后一题（任意模式）：回车直接提交/查看成绩，不再聚焦释义框（修复所有场景回车无法提交）
 function otherInputVisible(){ return $('inOther').offsetParent !== null; }
 $('inSpell').addEventListener('keydown', e=>{
   if (e.key==='Enter'){
     e.preventDefault();
+    if (fbPending){ $('nextBtn').click(); return; }      // 反馈中：回车即「继续」/「查看成绩」
     if (session && session.idx === session.questions.length-1){ $('nextBtn').click(); return; } // 最后一题：回车即提交/查看成绩
     // 有扩展词 → 先跳到第一个扩展词输入框
     const firstExt = document.querySelector('#extArea .ext-input');
@@ -1574,6 +1667,7 @@ $('extWrap').addEventListener('keydown', e=>{
   const inp = e.target;
   if (!inp || !inp.classList || !inp.classList.contains('ext-input') || e.key!=='Enter') return;
   e.preventDefault();
+  if (inp.disabled){ $('nextBtn').click(); return; }      // 反馈后锁定：回车继续
   const all = [...document.querySelectorAll('#extArea .ext-input')];
   const i = all.indexOf(inp);
   if (i >= 0 && i < all.length-1){ all[i+1].focus(); return; }
