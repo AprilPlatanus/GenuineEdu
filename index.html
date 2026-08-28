@@ -213,6 +213,16 @@ footer code{color:var(--gold2)}
 .spell-input{font-family:Georgia,serif;font-size:48px;letter-spacing:4px;text-align:center;padding:18px 14px;font-weight:700}
 .nav-btns{display:flex;gap:12px;margin-top:20px;justify-content:space-between}
 .enter-tip{font-size:12px;color:var(--text2);margin:12px 0 2px;text-align:center;opacity:.85}
+.ext-area{margin-top:14px}
+.ext-grid{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.ext-item{display:flex;flex-direction:column;gap:4px;min-width:120px;flex:1}
+.ext-item span{font-size:12px;color:var(--text2)}
+.ext-input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:16px;font-family:Georgia,serif;letter-spacing:1px;text-align:center;outline:none;transition:.15s}
+.ext-input:focus{border-color:var(--gold)}
+.ext-input.ok{border-color:var(--good);color:var(--good);background:rgba(127,176,105,.08)}
+.ext-input.bad{border-color:var(--bad);color:var(--bad);background:rgba(224,108,90,.08)}
+.fb .fb-exts{font-size:13px;margin-top:8px;line-height:1.9}
+.fb .fb-exts b{font-family:Georgia,serif;letter-spacing:1px}
 .exam-tip{margin-top:12px;text-align:center;font-size:12.5px;color:var(--text2);opacity:.85}
 .exam-tip b{color:var(--gold2);background:rgba(212,175,55,.12);border-radius:5px;padding:1px 7px;font-family:Georgia,serif}
 
@@ -406,11 +416,20 @@ footer code{color:var(--gold2)}
             <option value="all">全部显示（只考拼写）</option>
           </select>
         </div>
+        <div>
+          <label>扩展词同时测试</label>
+          <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text2);padding-top:2px">
+            <input type="checkbox" id="extToggle" style="width:auto;accent-color:var(--gold)">
+            <label for="extToggle" style="margin:0;cursor:pointer">开启：自动生成并判定扩展词拼写</label>
+          </div>
+        </div>
       </div>
       <div class="hint-box" style="margin-top:16px">
         <b>测试规则</b>（与助教人工流程一致）：每词随机展示 <b>一个词性 + 中文释义</b>（或选择全部显示），并给出
         <b>不超过单词字母数一半</b> 的字母提示；学生在提示的空格上<b>直接补全单词</b>，如为随机显示模式还需写出
-        <b>其余的词性和对应中文释义</b>。每答完一题立即显示对错与正确答案，全程不可返回上一题。全部完成后自动批改、记录错词。
+        <b>其余的词性和对应中文释义</b>。每答完一题立即显示对错与正确答案，全程不可返回上一题。全部完成后自动批改、记录错词。<br>
+        <b>扩展词规则</b>：名词 → 动词/形容词/副词/复数；动词 → 名词/形容词/副词/过去式/过去分词/现在分词/三单；
+        形容词 → 名词/动词/副词；副词 → 名词/动词/形容词；其他词性无扩展。扩展词的正确拼写由系统自动判定（变形按规则+常用不规则表生成，词性转换从词库同词根自动匹配）。
       </div>
       <div class="form-row" style="margin-top:16px">
         <button class="btn" id="startBtn">▶ 开始测试</button>
@@ -450,6 +469,7 @@ footer code{color:var(--gold2)}
     <input type="text" id="inSpell" class="spell-input" placeholder="直接在下划线空格上补全" lang="en" inputmode="latin" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus>
     <label id="lblOther" for="inOther">✏️ 其余词性 + 对应中文释义（多个用回车 / 逗号 / 分号分隔） <span class="ime-tag">中文</span></label>
     <textarea id="inOther" rows="2" lang="zh-CN" inputmode="text" placeholder="示例：&#10;n. 放纵&#10;adj. 疯狂的"></textarea>
+    <div id="extWrap"></div>
     <div id="fbArea" class="fb hidden"></div>
     <div id="enterTip" class="enter-tip"></div>
     <div class="nav-btns">
@@ -633,8 +653,9 @@ function parseStudentSenses(text){
 function gradeQuestion(q, matchMode, showAll){
   const ans = q.answer || {spelling:'', other:''};
   const spellingOk = normText(ans.spelling) === normText(q.entry.word);
+  const extResults = gradeExts(q); // 扩展词拼写判定
   // 全部显示模式：释义都给了学生，只批改拼写
-  if (showAll) return {spellingOk, senseResults: [], correct: spellingOk};
+  if (showAll) return {spellingOk, senseResults: [], extResults, correct: spellingOk && extResults.every(r => r.ok)};
   const others = q.entry.senses.filter(s => s !== q.asked);
   const strict = matchMode==='strict';
   const pool = parseStudentSenses(ans.other).slice(); // 学生条目池，逐条消耗
@@ -648,8 +669,8 @@ function gradeQuestion(q, matchMode, showAll){
     // 3) 未提供 → 少释义
     return {sense:s, ok:false, errorType:'missing'};
   });
-  const correct = spellingOk && senseResults.every(r => r.ok);
-  return {spellingOk, senseResults, correct};
+  const correct = spellingOk && senseResults.every(r => r.ok) && extResults.every(r => r.ok);
+  return {spellingOk, senseResults, extResults, correct};
 }
 
 function buildErrorDetail(it){
@@ -665,31 +686,199 @@ function buildErrorDetail(it){
       else parts.push(`少释义：${label}`);
     }
   });
+  // 扩展词错误
+  (it.exts||[]).forEach(e => {
+    if (!e.ok) parts.push(`扩展词（${e.label}）应为 ${e.word}`);
+  });
   return parts.length ? parts.join('；') : '';
 }
 
-function makeSession(lib, count, hintMode, fixedN, matchMode){
+function makeSession(lib, count, hintMode, fixedN, matchMode, extEnabled){
   const picked = shuffle(lib.entries).slice(0, Math.max(1, Math.min(count, lib.entries.length)));
   return {
     questions: picked.map(e => {
       const asked = e.senses[Math.floor(Math.random()*e.senses.length)];
-      return {entry:e, asked, hint: buildHint(e.word, hintMode, fixedN), answer:null};
+      const exts = extEnabled ? buildExtWords(e, lib.entries) : [];
+      return {entry:e, asked, hint: buildHint(e.word, hintMode, fixedN), exts, answer:null};
     }),
     idx:0, startTime:Date.now(),
-    hintMode, fixedN, matchMode
+    hintMode, fixedN, matchMode, extEnabled
   };
 }
 
 function gradeSession(session, wrongRule){
   return session.questions.map(q => {
     const g0 = gradeQuestion(q, session.matchMode, session.showAll);
-    // 仅拼写模式：不考虑释义答题情况
+    // 仅拼写模式：不考虑释义答题情况（扩展词仍计入）
     const g = (wrongRule==='spelling')
-      ? {spellingOk: g0.spellingOk, senseResults: [], correct: g0.spellingOk}
+      ? {spellingOk: g0.spellingOk, senseResults: [], extResults: g0.extResults,
+         correct: g0.spellingOk && (g0.extResults||[]).every(r => r.ok)}
       : g0;
-    const isWrong = wrongRule==='spelling' ? !g.spellingOk : !g.correct;
+    const isWrong = wrongRule==='spelling' ? !g.correct : !g.correct;
     return {q, g, isWrong};
   });
+}
+
+/* ================= 扩展词（同时测试） ================= */
+// 常用不规则动词：base -> [第三人称单数, 过去式, 过去分词, 现在分词]
+const IRREG_VERBS = {
+  be:['is','was','been','being'], go:['goes','went','gone','going'], do:['does','did','done','doing'],
+  have:['has','had','had','having'], make:['makes','made','made','making'], take:['takes','took','taken','taking'],
+  give:['gives','gave','given','giving'], get:['gets','got','gotten','getting'], see:['sees','saw','seen','seeing'],
+  know:['knows','knew','known','knowing'], come:['comes','came','come','coming'], think:['thinks','thought','thought','thinking'],
+  find:['finds','found','found','finding'], tell:['tells','told','told','telling'], become:['becomes','became','become','becoming'],
+  show:['shows','showed','shown','showing'], leave:['leaves','left','left','leaving'], feel:['feels','felt','felt','feeling'],
+  put:['puts','put','put','putting'], bring:['brings','brought','brought','bringing'], begin:['begins','began','begun','beginning'],
+  keep:['keeps','kept','kept','keeping'], hold:['holds','held','held','holding'], write:['writes','wrote','written','writing'],
+  stand:['stands','stood','stood','standing'], hear:['hears','heard','heard','hearing'], let:['lets','let','let','letting'],
+  mean:['means','meant','meant','meaning'], set:['sets','set','set','setting'], meet:['meets','met','met','meeting'],
+  run:['runs','ran','run','running'], pay:['pays','paid','paid','paying'], sit:['sits','sat','sat','sitting'],
+  speak:['speaks','spoke','spoken','speaking'], lie:['lies','lay','lain','lying'], lead:['leads','led','led','leading'],
+  read:['reads','read','read','reading'], grow:['grows','grew','grown','growing'], lose:['loses','lost','lost','losing'],
+  fall:['falls','fell','fallen','falling'], send:['sends','sent','sent','sending'], build:['builds','built','built','building'],
+  draw:['draws','drew','drawn','drawing'], break:['breaks','broke','broken','breaking'], spend:['spends','spent','spent','spending'],
+  cut:['cuts','cut','cut','cutting'], rise:['rises','rose','risen','rising'], drive:['drives','drove','driven','driving'],
+  buy:['buys','bought','bought','buying'], wear:['wears','wore','worn','wearing'], choose:['chooses','chose','chosen','choosing'],
+  catch:['catches','caught','caught','catching'], eat:['eats','ate','eaten','eating'], sleep:['sleeps','slept','slept','sleeping'],
+  teach:['teaches','taught','taught','teaching'], fight:['fights','fought','fought','fighting'], throw:['throws','threw','thrown','throwing'],
+  fly:['flies','flew','flown','flying'], sing:['sings','sang','sung','singing'], swim:['swims','swam','swum','swimming'],
+  drink:['drinks','drank','drunk','drinking'], win:['wins','won','won','winning'], forget:['forgets','forgot','forgotten','forgetting'],
+  hit:['hits','hit','hit','hitting'], beat:['beats','beat','beaten','beating'], hurt:['hurts','hurt','hurt','hurting'],
+  feed:['feeds','fed','fed','feeding'], sell:['sells','sold','sold','selling'], cost:['costs','cost','cost','costing'],
+  shoot:['shoots','shot','shot','shooting'], shake:['shakes','shook','shaken','shaking'], hide:['hides','hid','hidden','hiding'],
+  ride:['rides','rode','ridden','riding'], seek:['seeks','sought','sought','seeking'], steal:['steals','stole','stolen','stealing'],
+  strike:['strikes','struck','struck','striking'], swear:['swears','swore','sworn','swearing'], tear:['tears','tore','torn','tearing'],
+  wake:['wakes','woke','woken','waking'], bite:['bites','bit','bitten','biting'], blow:['blows','blew','blown','blowing'],
+  dig:['digs','dug','dug','digging'], dream:['dreams','dreamt','dreamt','dreaming'], forgive:['forgives','forgave','forgiven','forgiving'],
+  freeze:['freezes','froze','frozen','freezing'], hang:['hangs','hung','hung','hanging'], lay:['lays','laid','laid','laying'],
+  quit:['quits','quit','quit','quitting'], ring:['rings','rang','rung','ringing'], shine:['shines','shone','shone','shining'],
+  sink:['sinks','sank','sunk','sinking'], spread:['spreads','spread','spread','spreading'], stick:['sticks','stuck','stuck','sticking'],
+  burn:['burns','burnt','burnt','burning'], deal:['deals','dealt','dealt','dealing'], leap:['leaps','leapt','leapt','leaping'],
+  lend:['lends','lent','lent','lending'], light:['lights','lit','lit','lighting'], speed:['speeds','sped','sped','speeding'],
+  sweep:['sweeps','swept','swept','sweeping'], weep:['weeps','wept','wept','weeping'], bend:['bends','bent','bent','bending'],
+  bind:['binds','bound','bound','binding'], bleed:['bleeds','bled','bled','bleeding'], breed:['breeds','bred','bred','breeding'],
+  creep:['creeps','crept','crept','creeping'], flee:['flees','fled','fled','fleeing'], grind:['grinds','ground','ground','grinding'],
+  kneel:['kneels','knelt','knelt','kneeling'], spin:['spins','spun','spun','spinning'], swing:['swings','swung','swung','swinging'],
+  wind:['winds','wound','wound','winding'], dive:['dives','dived','dived','diving'], arise:['arises','arose','arisen','arising'],
+  awake:['awakes','awoke','awoken','awaking'], bear:['bears','bore','born','bearing'], bet:['bets','bet','bet','betting'],
+  cling:['clings','clung','clung','clinging'], dig:['digs','dug','dug','digging'], fit:['fits','fit','fit','fitting'],
+  grip:['grips','gripped','gripped','gripping'], lean:['leans','leant','leant','leaning'], spoil:['spoils','spoilt','spoilt','spoiling']
+};
+// 常用不规则名词复数
+const IRREG_PLURALS = {man:'men', woman:'women', child:'children', foot:'feet', tooth:'teeth', mouse:'mice', person:'people', goose:'geese', ox:'oxen', sheep:'sheep', fish:'fish', deer:'deer', species:'species', series:'series', medium:'media', datum:'data', analysis:'analyses', crisis:'crises', basis:'bases', thesis:'theses', phenomenon:'phenomena', criterion:'criteria', focus:'foci', stimulus:'stimuli', index:'indices', matrix:'matrices', appendix:'appendices', syllabus:'syllabi', alumnus:'alumni', curriculum:'curricula'};
+// 常见 -f/-fe → -ves 名词
+const F_END = {leaf:'leaves', knife:'knives', life:'lives', wife:'wives', half:'halves', shelf:'shelves', wolf:'wolves', thief:'thieves', self:'selves', loaf:'loaves', calf:'calves', scarf:'scarves', elf:'elves'};
+// 常见 -o 结尾加 -es 名词
+const O_ES = ['tomato','potato','hero','echo','veto','torpedo','buffalo','mosquito','volcano'];
+// 常见重读闭音节需双写末尾辅音的词（过去式/现在分词）
+const DOUBLE_LAST = ['stop','plan','rob','drop','fit','flip','grab','hug','jog','knot','nod','pat','pin','pop','rub','shop','slip','snap','spin','stab','step','stir','trip','wrap','admit','commit','occur','prefer','refer','regret','permit','control','begin','forget','travel','cancel','compel','expel','propel','submit','transmit','equip','kidnap','worship'];
+
+function pluralize(n){
+  n = String(n||'').trim(); if (!n) return n;
+  const lw = n.toLowerCase();
+  if (IRREG_PLURALS[lw]) return IRREG_PLURALS[lw];
+  if (F_END[lw]) return F_END[lw];
+  if (/[sxz]$/.test(lw) || /(ch|sh)$/.test(lw)) return n + 'es';
+  if (/[^aeiou]y$/.test(lw)) return n.slice(0,-1) + 'ies';
+  if (/[^aeiou]o$/.test(lw) && O_ES.includes(lw)) return n + 'es';
+  return n + 's';
+}
+function thirdPerson(v){
+  v = String(v||'').trim(); if (!v) return v;
+  const lw = v.toLowerCase();
+  if (IRREG_VERBS[lw]) return IRREG_VERBS[lw][0];
+  if (/[sxz]$/.test(lw) || /(ch|sh)$/.test(lw)) return v + 'es';
+  if (/[^aeiou]y$/.test(lw)) return v.slice(0,-1) + 'ies';
+  if (/o$/.test(lw)) return v + 'es';
+  return v + 's';
+}
+function pastForm(v){
+  v = String(v||'').trim(); if (!v) return v;
+  const lw = v.toLowerCase();
+  if (IRREG_VERBS[lw]) return IRREG_VERBS[lw][1];
+  if (/e$/.test(lw)) return v + 'd';
+  if (/[^aeiou]y$/.test(lw)) return v.slice(0,-1) + 'ied';
+  if (DOUBLE_LAST.includes(lw)) return v + v.slice(-1) + 'ed';
+  return v + 'ed';
+}
+function ppForm(v){
+  v = String(v||'').trim(); if (!v) return v;
+  const lw = v.toLowerCase();
+  if (IRREG_VERBS[lw]) return IRREG_VERBS[lw][2];
+  return pastForm(v);
+}
+function ingForm(v){
+  v = String(v||'').trim(); if (!v) return v;
+  const lw = v.toLowerCase();
+  if (IRREG_VERBS[lw]) return IRREG_VERBS[lw][3];
+  if (/ie$/.test(lw)) return v.slice(0,-2) + 'ying';   // die→dying / lie→lying
+  if (/e$/.test(lw) && !/ee$/.test(lw)) return v.slice(0,-1) + 'ing'; // make→making
+  if (DOUBLE_LAST.includes(lw)) return v + v.slice(-1) + 'ing';
+  return v + 'ing';
+}
+
+// 词根规范化（用于词库内同词根匹配：act→action/active/actively）
+const STEM_SUFFIXES = ['atively','ization','fulness','lessness','ability','ibility','ational','ition','ation','sively','tively','ically','ively','ously','fully','ment','ness','less','able','ible','tive','sive','itive','ivity','ance','ence','tion','sion','ion','ant','ent','er','or','ar','ist','ism','ous','ive','ity','ly','al','ful','ate','ize','ise','en','y','ed','ing','es','s'];
+function stemOf(w){
+  w = String(w||'').toLowerCase();
+  for (const s of STEM_SUFFIXES){
+    if (w.length > s.length + 2 && w.endsWith(s)) return w.slice(0, w.length - s.length);
+  }
+  return w;
+}
+function firstPosEn(entry){
+  const p = String((entry.senses && entry.senses[0] && entry.senses[0].pos)||'').toLowerCase().split(/[&/]/)[0].replace(/\./g,'').trim();
+  if (POS_ALIAS[p]) return p;
+  for (const k in POS_ALIAS){ if (POS_ALIAS[k]===p) return k; }
+  return p;
+}
+// 同根判定：候选词去掉后缀后与基础词一致，或处理 y→i 变形（happy→happiness/happily）、前缀关系（act→action）
+function sameRoot(base, cand){
+  const b = String(base).toLowerCase(), c = String(cand).toLowerCase();
+  if (b === c) return false;
+  const sc = stemOf(c);
+  if (sc === b) return true;
+  const by = (b.length > 1 && b.endsWith('y')) ? b.slice(0,-1) + 'i' : null; // happy → happi
+  if (by && (sc === by || sc.startsWith(by))) return true;
+  if (b.length >= 3 && sc.startsWith(b)) return true;
+  if (c.length >= 3 && b.startsWith(c)) return true;
+  return false;
+}
+function findRootMatch(base, entries, targetPos){
+  const bl = String(base).toLowerCase();
+  for (const e of entries){
+    if (String(e.word).toLowerCase() === bl) continue;
+    if (!sameRoot(base, e.word)) continue;
+    if ((e.senses||[]).some(s => s.pos && posMatch(s.pos, targetPos, false))) return e;
+  }
+  return null;
+}
+// 扩展词规则：n→v/adj/adv/复数；v→n/adj/adv/过去式/过去分词/现在分词/三单；adj→n/v/adv；adv→n/v/adj；其他词性无扩展
+function buildExtWords(entry, entries){
+  const first = firstPosEn(entry);
+  let plan = [];
+  if (first==='n') plan = [['v','动词形式'],['adj','形容词形式'],['adv','副词形式'],['plural','复数']];
+  else if (first==='v'||first==='vt'||first==='vi') plan = [['n','名词形式'],['adj','形容词形式'],['adv','副词形式'],['past','过去式'],['pp','过去分词'],['ing','现在分词'],['s','第三人称单数']];
+  else if (first==='adj') plan = [['n','名词形式'],['v','动词形式'],['adv','副词形式']];
+  else if (first==='adv') plan = [['n','名词形式'],['v','动词形式'],['adj','形容词形式']];
+  else return [];
+  const w = String(entry.word);
+  const out = [];
+  for (const [type, label] of plan){
+    if (type==='plural'){ out.push({label, word: pluralize(w)}); continue; }
+    if (type==='past'){ out.push({label, word: pastForm(w)}); continue; }
+    if (type==='pp'){ out.push({label, word: ppForm(w)}); continue; }
+    if (type==='ing'){ out.push({label, word: ingForm(w)}); continue; }
+    if (type==='s'){ out.push({label, word: thirdPerson(w)}); continue; }
+    const hit = findRootMatch(w, entries, type);
+    if (hit) out.push({label, word: hit.word});
+  }
+  return out;
+}
+function gradeExts(q){
+  const correct = q.exts || [];
+  const ans = (q.answer && q.answer.exts) || [];
+  return correct.map((e,i)=>({label:e.label, word:e.word, ok: normText(ans[i]||'') === normText(e.word)}));
 }
 </script>
 
@@ -855,6 +1044,7 @@ function saveSettings(){
     wrongRule: $('wrongRule').value,
     timeLimit: $('timeLimit').value,
     senseShow: $('senseShow').value,
+    extEnabled: !!$('extToggle').checked,
     student: $('studentName').value
   }));
 }
@@ -870,6 +1060,7 @@ function loadSettings(){
     if (s.wrongRule) $('wrongRule').value = s.wrongRule;
     if (s.timeLimit !== undefined) $('timeLimit').value = String(s.timeLimit);
     if (s.senseShow) $('senseShow').value = s.senseShow;
+    if (s.extEnabled) $('extToggle').checked = true;
     if (s.student) $('studentName').value = s.student;
   }catch(e){}
 }
@@ -891,7 +1082,7 @@ $('startBtn').onclick = () => {
   const matchMode = $('matchMode').value;
   const timeLimit = parseInt($('timeLimit').value,10) || 0;
   localStorage.removeItem(LS.pending); // 开始新测试，作废旧进度
-  session = makeSession(lib, count, hintMode, null, matchMode);
+  session = makeSession(lib, count, hintMode, null, matchMode, $('extToggle').checked);
   session.student = student;
   session.libName = lib.name;
   session.limit = timeLimit;         // 每题限时（秒），0 = 不限时
@@ -974,6 +1165,17 @@ function renderQuestion(){
   $('inSpell').value = blankDisplay(blankChars);
   const prev = q.answer || {};
   $('inOther').value = prev.other || '';
+  // 扩展词输入区：每题渲染扩展词填空（无扩展词则清空）
+  const exts = q.exts || [];
+  const extPrev = prev.exts || [];
+  $('extWrap').innerHTML = exts.length
+    ? `<div id="extArea" class="ext-area">
+        <label>🧩 扩展词拼写（请写出下列扩展词的正确拼写）</label>
+        <div class="ext-grid">` +
+        exts.map((e,i)=>`<div class="ext-item"><span>${esc(e.label)}</span>
+          <input type="text" class="ext-input" data-i="${i}" value="${esc(extPrev[i]||'')}" lang="en" autocomplete="off" autocapitalize="off" spellcheck="false"></div>`).join('') +
+      `</div></div>`
+    : '';
   $('nextBtn').style.display = session.idx===n-1 ? 'none' : '';
   $('submitBtn').style.display = session.idx===n-1 ? '' : 'none';
   hideFeedback();
@@ -986,7 +1188,12 @@ function renderQuestion(){
 }
 function saveAnswer(){
   const q = session.questions[session.idx];
-  q.answer = {spelling: blankDisplay(blankChars).replace(/_/g,''), other: $('inOther').value};
+  const extInputs = document.querySelectorAll('#extArea .ext-input');
+  q.answer = {
+    spelling: blankDisplay(blankChars).replace(/_/g,''),
+    other: $('inOther').value,
+    exts: [...extInputs].map(x=>x.value)
+  };
 }
 function showFeedback(g, q){
   const fb = $('fbArea');
@@ -1005,6 +1212,18 @@ function showFeedback(g, q){
       <div class="fb-senses">词性释义：${senses}</div>`;
   }
   fb.classList.remove('hidden');
+  // 扩展词判定结果：追加显示 + 输入框标色锁定
+  const extRes = g.extResults || [];
+  if (extRes.length){
+    const extAns = (q.answer && q.answer.exts) || [];
+    const extRows = extRes.map((r,i)=>`${esc(r.label)} <b class="${r.ok?'ok':'bad'}">${esc(r.word)}</b>${r.ok ? '' : '（你填：' + esc(extAns[i] || '—') + '）'}`).join('　｜　');
+    fb.innerHTML += `<div class="fb-exts">🧩 扩展词：${extRows}</div>`;
+    document.querySelectorAll('#extArea .ext-input').forEach((inp,i)=>{
+      const r = extRes[i];
+      if (r) inp.classList.add(r.ok ? 'ok' : 'bad');
+      inp.disabled = true;
+    });
+  }
   $('enterTip').textContent = '⌨️ 按 Enter 继续进入下一题';
 }
 function hideFeedback(){
@@ -1054,7 +1273,7 @@ function saveProgress(){
     limit: session.limit, showAll: !!session.showAll, wrongRule: session.wrongRule || $('wrongRule').value,
     matchMode: session.matchMode, hintMode: session.hintMode,
     startTime: session.startTime, idx: session.idx,
-    questions: session.questions.map(q=>({entry:q.entry, asked:q.asked, hint:q.hint, answer:q.answer})),
+    questions: session.questions.map(q=>({entry:q.entry, asked:q.asked, hint:q.hint, exts:q.exts||[], answer:q.answer})),
     blank: blankChars.slice(),
     savedAt: Date.now()
   };
@@ -1072,7 +1291,7 @@ function restoreProgress(){
       limit: snap.limit, showAll: !!snap.showAll, wrongRule: snap.wrongRule || 'any',
       matchMode: snap.matchMode, hintMode: snap.hintMode,
       startTime: snap.startTime, idx: snap.idx,
-      questions: snap.questions.map(q=>({entry:q.entry, asked:q.asked, hint:q.hint, answer:q.answer || null}))
+      questions: snap.questions.map(q=>({entry:q.entry, asked:q.asked, hint:q.hint, exts:q.exts||[], answer:q.answer || null}))
     };
     $('wrongRule').value = snap.wrongRule || 'any';
     session._resumeBlank = snap.blank || [];
@@ -1105,7 +1324,8 @@ function finishExam(silent){
     items: grading.map((r,idx)=>{
       const q = session.questions[idx];
       return {word:q.entry.word, hint:q.hint, asked:q.asked, answer:q.answer, entrySenses:q.entry.senses,
-              spellingOk:r.g.spellingOk, senses:r.g.senseResults.map(s=>({pos:s.sense.pos, meaning:s.sense.meaning, ok:s.ok, errorType:s.errorType})), wrong:r.isWrong};
+              spellingOk:r.g.spellingOk, senses:r.g.senseResults.map(s=>({pos:s.sense.pos, meaning:s.sense.meaning, ok:s.ok, errorType:s.errorType})),
+              exts: (r.g.extResults||[]).map(e=>({label:e.label, word:e.word, ok:e.ok})), wrong:r.isWrong};
     })
   });
   localStorage.setItem(LS.recs, JSON.stringify(records));
@@ -1137,7 +1357,8 @@ function buildGradingFromRecord(rec){
   return {rec, items: rec.items.map(it=>({
     q:{entry:{word:it.word, senses:(it.entrySenses && it.entrySenses.length) ? it.entrySenses : [it.asked, ...it.senses.map(s=>({pos:s.pos,meaning:s.meaning}))]}, asked:it.asked, hint:it.hint, answer:it.answer},
     g:{spellingOk:it.spellingOk, senseResults:it.senses.map(s=>({sense:{pos:s.pos,meaning:s.meaning}, ok:s.ok})),
-       correct: it.spellingOk && it.senses.every(s=>s.ok)},
+       extResults:(it.exts||[]).map(e=>({label:e.label, word:e.word, ok:e.ok})),
+       correct: it.spellingOk && it.senses.every(s=>s.ok) && (it.exts||[]).every(e=>e.ok)},
     isWrong: it.wrong
   }))};
 }
@@ -1149,6 +1370,8 @@ function renderLastResult(){
   const spOk = items.filter(i=>i.g.spellingOk).length;
   const senseTotal = items.reduce((a,i)=>a+i.g.senseResults.length,0);
   const senseOk = items.reduce((a,i)=>a+i.g.senseResults.filter(s=>s.ok).length,0);
+  const extTotal = items.reduce((a,i)=>a+(i.g.extResults||[]).length,0);
+  const extOk = items.reduce((a,i)=>a+(i.g.extResults||[]).filter(e=>e.ok).length,0);
   const correctCount = items.filter(i=>!i.isWrong).length;
   const wrongItems = items.filter(i=>i.isWrong);
   const pct = items.length ? Math.round(correctCount/items.length*100) : 0;
@@ -1165,20 +1388,24 @@ function renderLastResult(){
       <div class="stat"><div class="num">${pct}%</div><div class="lbl">正确率</div></div>
       <div class="stat"><div class="num">${spOk}/${spTotal}</div><div class="lbl">拼写正确</div></div>
       <div class="stat"><div class="num">${senseOk}/${senseTotal}</div><div class="lbl">释义正确</div></div>
+      ${extTotal ? `<div class="stat"><div class="num">${extOk}/${extTotal}</div><div class="lbl">扩展词正确</div></div>` : ''}
       <div class="stat"><div class="num">${dur}s</div><div class="lbl">用时</div></div>
     </div>
     <div class="muted" style="font-size:12px;margin-bottom:12px">学生：<b class="gold-text">${esc(st)}</b> ｜ 词库：${esc(lb)} ｜ ${dateStr} ｜ 错词 <b class="bad">${wrongItems.length}</b> 个</div>
-    <table class="wrong-table"><tr><th>#</th><th>单词</th><th>提示</th><th>拼写</th><th>其余词性释义</th><th>结果</th><th>正确答案</th></tr>`;
+    <table class="wrong-table"><tr><th>#</th><th>单词</th><th>提示</th><th>拼写</th><th>其余词性释义</th><th>扩展词</th><th>结果</th><th>正确答案</th></tr>`;
   items.forEach((it,i)=>{
     const q = it.q;
     const senseTxt = it.g.senseResults.length
       ? it.g.senseResults.map(s=>`${esc(s.sense.pos||'')} ${esc(s.sense.meaning||'')} → <span class="${s.ok?'ok':'bad'}">${s.ok?'✓':'✗'}</span>`).join('<br>')
       : '<span class="muted">（无其他释义）</span>';
+    const extTxt = (it.g.extResults||[]).length
+      ? it.g.extResults.map(e=>`${esc(e.label)} ${esc(e.word)} → <span class="${e.ok?'ok':'bad'}">${e.ok?'✓':'✗'}</span>`).join('<br>')
+      : '<span class="muted">—</span>';
     const spellTxt = `${esc((q.answer&&q.answer.spelling)||'—')} → <span class="${it.g.spellingOk?'ok':'bad'}">${it.g.spellingOk?'✓':'✗'}</span>`;
     const ansSenses = q.entry.senses.map(s=>`${esc(s.pos||'')} ${esc(s.meaning||'')}`).join('<br>');
     const result = it.isWrong ? '<span class="badge bad">错词</span>' : '<span class="badge ok">对</span>';
     html += `<tr><td>${i+1}</td><td><b>${esc(q.entry.word)}</b></td><td class="muted" style="font-family:Georgia,serif;letter-spacing:2px">${esc(q.hint)}</td>
-      <td>${spellTxt}</td><td>${senseTxt}</td><td>${result}</td><td class="muted">${ansSenses}</td></tr>`;
+      <td>${spellTxt}</td><td>${senseTxt}</td><td>${extTxt}</td><td>${result}</td><td class="muted">${ansSenses}</td></tr>`;
   });
   html += '</table>';
   html += `<div class="form-row" style="margin-top:14px" id="resultActions">
@@ -1273,16 +1500,18 @@ function downloadCSV(filename, rows){
   setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
 }
 function exportCSV(rec, items, st, lb){
-  const rows = [['学生','日期','词库','单词','字母数','提示','提问词性','提问释义','学生拼写','拼写正确','其余词性释义(标准)','其余词性释义(学生)','每题全对','是否错词']];
+  const rows = [['学生','日期','词库','单词','字母数','提示','提问词性','提问释义','学生拼写','拼写正确','其余词性释义(标准)','其余词性释义(学生)','扩展词(正确)','扩展词(学生)','每题全对','是否错词']];
   (items||[]).forEach((it,idx)=>{
     const q = it.q;
     const std = it.g.senseResults.length
       ? it.g.senseResults.map(s=>`${s.sense.pos} ${s.sense.meaning}`).join('; ')
       : q.entry.senses.map(s=>`${s.pos} ${s.meaning}`).join('; ');
     const stu = (q.answer&&q.answer.other)||'';
+    const extStd = (q.exts||[]).map(e=>e.word).join('; ');
+    const extStu = ((q.answer&&q.answer.exts)||[]).join('; ');
     rows.push([st, new Date().toLocaleString('zh-CN'), lb, q.entry.word, countLetters(q.entry.word), q.hint,
       q.asked.pos, q.asked.meaning, (q.answer&&q.answer.spelling)||'', it.g.spellingOk?'对':'错',
-      std, stu, it.isWrong?'否':'是', it.isWrong?'错词':'正确']);
+      std, stu, extStd, extStu, it.isWrong?'否':'是', it.isWrong?'错词':'正确']);
   });
   downloadCSV(`单词测试_${st}_${new Date().toISOString().slice(0,10)}.csv`, rows);
 }
