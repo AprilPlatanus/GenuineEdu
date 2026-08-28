@@ -256,9 +256,17 @@ footer code{color:var(--gold2)}
 .spell-only .q-ask{font-size:20px;margin-bottom:30px}
 .spell-only .q-ask b{font-size:30px}
 .spell-only .spell-input{font-size:64px;letter-spacing:10px;padding:30px 18px;min-height:130px}
-/* 普通模式（需输入词性+释义）：拼写框放大约占页面一半，词性+释义框缩小约占三分之一 */
-.overlay:not(.spell-only) .spell-input{font-size:58px;letter-spacing:6px;padding:34px 16px;min-height:34vh}
-.overlay:not(.spell-only) #inOther{font-size:13px;min-height:20vh;max-height:26vh}
+/* 普通模式（需输入词性+释义）：整卡一屏显示、无需滚动；拼写框约占一半、释义框约占三分之一 */
+.overlay:not(.spell-only) .exam{display:flex;flex-direction:column;height:88vh;box-sizing:border-box}
+.overlay:not(.spell-only) .exam-top,
+.overlay:not(.spell-only) .progress-bar,
+.overlay:not(.spell-only) .q-ask,
+.overlay:not(.spell-only) .exam > label,
+.overlay:not(.spell-only) .enter-tip,
+.overlay:not(.spell-only) .fb,
+.overlay:not(.spell-only) .nav-btns{flex:0 0 auto}
+.overlay:not(.spell-only) .spell-input{flex:3 1 auto;min-height:96px;font-size:56px;letter-spacing:6px;padding:26px 16px}
+.overlay:not(.spell-only) #inOther{flex:2 1 auto;min-height:72px;font-size:13px;max-height:none}
 @media print{header,.tabs,footer,.no-print{display:none!important}}
 </style>
 </head>
