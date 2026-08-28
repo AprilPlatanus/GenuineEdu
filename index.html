@@ -267,6 +267,20 @@ footer code{color:var(--gold2)}
 .spell-only .q-ask b{font-size:30px}
 .spell-only .spell-input{font-size:64px;letter-spacing:10px;padding:30px 18px;min-height:130px}
 .spell-only #extWrap{max-height:26vh;overflow-y:auto}
+/* 勾选扩展词：扩展词区占比加大。普通模式：拼写/扩展词/释义各约 1/3；只拼写模式：拼写/扩展词各约 1/2 */
+.overlay:not(.spell-only).has-ext .spell-input{flex:1 1 33%;min-height:60px;font-size:52px;letter-spacing:6px;padding:20px 16px}
+.overlay:not(.spell-only).has-ext #extWrap{flex:1 1 33%;min-height:60px;max-height:none;overflow-y:auto}
+.overlay:not(.spell-only).has-ext #inOther{flex:1 1 33%;min-height:60px}
+.spell-only.has-ext .exam{display:flex;flex-direction:column;height:92vh;box-sizing:border-box}
+.spell-only.has-ext .exam-top,
+.spell-only.has-ext .progress-bar,
+.spell-only.has-ext .q-ask,
+.spell-only.has-ext .exam > label,
+.spell-only.has-ext .enter-tip,
+.spell-only.has-ext .nav-btns{flex:0 0 auto}
+.spell-only.has-ext .spell-input{flex:1 1 50%;min-height:90px;font-size:56px;letter-spacing:8px}
+.spell-only.has-ext #extWrap{flex:1 1 50%;min-height:90px;max-height:none;overflow-y:auto}
+.spell-only.has-ext .fb{flex:0 1 auto;min-height:0;max-height:24vh;overflow-y:auto}
 /* 普通模式（需输入词性+释义）：整卡一屏显示、无需滚动；按钮始终可见；拼写框约占一半、释义框约占三分之一 */
 .overlay:not(.spell-only) .exam{display:flex;flex-direction:column;height:92vh;box-sizing:border-box}
 .overlay:not(.spell-only) .exam-top,
@@ -1178,6 +1192,8 @@ function renderQuestion(){
           <input type="text" class="ext-input" data-i="${i}" value="${esc(extPrev[i]||'')}" lang="en" autocomplete="off" autocapitalize="off" spellcheck="false"></div>`).join('') +
       `</div></div>`
     : '';
+  // 勾选扩展词（当前题有扩展词）时切换布局状态：拼写框/扩展词区/释义框各约占 1/3
+  $('examOverlay').classList.toggle('has-ext', exts.length > 0);
   $('nextBtn').style.display = session.idx===n-1 ? 'none' : '';
   $('submitBtn').style.display = session.idx===n-1 ? '' : 'none';
   hideFeedback();
