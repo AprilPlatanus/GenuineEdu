@@ -1208,19 +1208,24 @@ function renderWrongBook(){
           <button class="btn ghost sm" onclick="exportWrongCSV('${esc(st)}')">⬇️ 导出错词 CSV</button>
           <button class="btn danger sm" onclick="delStudentRecords('${esc(st)}')">清除该学生记录</button>
         </div>
-      </div>
-      <table class="wrong-table"><tr><th>单词</th><th>词性释义（完整）</th><th>日期</th><th>拼写</th><th>错误详情</th></tr>`;
+      </div>`;
+    // 按测试时间分开显示：每次测试独立一个区块与错词表（时间从新到旧）
     groups.forEach(g=>{
       const d = new Date(g.rec.date);
-      const ds = `${d.getMonth()+1}/${d.getDate()}`;
+      const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      html += `<div style="margin:14px 0 6px;font-size:13px">
+        <b>🕐 ${ds}</b> <span class="muted">（本次错词 ${g.wrong.length} 个 · 共 ${g.rec.items.length} 词）</span>
+      </div>
+      <table class="wrong-table"><tr><th>单词</th><th>词性释义（完整）</th><th>拼写</th><th>错误详情</th></tr>`;
       g.wrong.forEach(w=>{
         const detail = buildErrorDetail(w);
-        html += `<tr><td><b>${esc(w.word)}</b></td><td class="muted">${esc(sensesText(w,'；'))}</td><td class="muted">${ds}</td>
+        html += `<tr><td><b>${esc(w.word)}</b></td><td class="muted">${esc(sensesText(w,'；'))}</td>
           <td class="muted">${esc((w.answer&&w.answer.spelling)||'—')}</td>
           <td class="bad">${esc(detail||'—')}</td></tr>`;
       });
+      html += '</table>';
     });
-    html += '</table></div>';
+    html += '</div>';
   }
   html += `<div class="form-row" style="justify-content:flex-end"><button class="btn danger sm" id="clearAllBtn">🗑 清空全部错词记录</button></div>`;
   box.innerHTML = html;
