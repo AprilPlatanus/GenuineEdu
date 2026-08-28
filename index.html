@@ -1414,11 +1414,13 @@ function toHalfWidth(s){
 // - 普通模式（有释义输入框）：回车先把焦点移到释义框；释义框内 Ctrl/Cmd+Enter 跳题，
 //   普通回车在释义框内仍用于换行分隔多个释义，故不抢占
 // - 已显示对错反馈时（fbPending）：回车直接「继续」进入下一题
+// - 最后一题（任意模式）：回车直接提交/查看成绩，不再聚焦释义框（修复所有场景回车无法提交）
 function otherInputVisible(){ return $('inOther').offsetParent !== null; }
 $('inSpell').addEventListener('keydown', e=>{
   if (e.key==='Enter'){
     e.preventDefault();
-    if (fbPending){ $('nextBtn').click(); return; }      // 反馈中：回车即「继续」
+    if (fbPending){ $('nextBtn').click(); return; }      // 反馈中：回车即「继续」/「查看成绩」
+    if (session && session.idx === session.questions.length-1){ $('nextBtn').click(); return; } // 最后一题：回车即提交/查看成绩
     if (otherInputVisible()) $('inOther').focus();        // 普通模式：先进释义框
     else $('nextBtn').click();                             // 仅拼写/全部显示：直接下一题
   }
