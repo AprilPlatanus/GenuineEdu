@@ -441,6 +441,7 @@ footer code{color:var(--gold2)}
         </div>
       </div>
       <div class="hint-box" style="margin-top:16px">
+        <b>抽取规则</b>：每次开始测试都会<b>重新随机打乱单词顺序</b>（勾选「全部单词」时同样打乱后测试，不会按词库原顺序出题）。<br>
         <b>测试规则</b>（与助教人工流程一致）：每词随机展示 <b>一个词性 + 中文释义</b>（或选择全部显示），并给出
         <b>不超过单词字母数一半</b> 的字母提示；学生在提示的空格上<b>直接补全单词</b>，如为随机显示模式还需写出
         <b>其余的词性和对应中文释义</b>。每答完一题立即显示对错与正确答案，全程不可返回上一题。全部完成后自动批改、记录错词。<br>
@@ -589,10 +590,16 @@ function parseWordLine(line){
   return entry;
 }
 
+// 随机打乱：优先使用浏览器加密级随机源（回退 Math.random）；每次调用都重新打乱
 function shuffle(arr){
   const a = arr.slice();
+  let rand = Math.random;
+  try{
+    const g = globalThis.crypto;
+    if (g && g.getRandomValues) rand = () => g.getRandomValues(new Uint32Array(1))[0] / 4294967296;
+  }catch(e){ rand = Math.random; }
   for (let i=a.length-1;i>0;i--){
-    const j = Math.floor(Math.random()*(i+1));
+    const j = Math.floor(rand()*(i+1));
     [a[i],a[j]]=[a[j],a[i]];
   }
   return a;
