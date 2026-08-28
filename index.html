@@ -1675,7 +1675,10 @@ $('extWrap').addEventListener('keydown', e=>{
   else $('nextBtn').click();                               // 无释义框 → 下一题
 });
 $('inOther').addEventListener('keydown', e=>{
-  if (e.key==='Enter' && (e.metaKey||e.ctrlKey)){ e.preventDefault(); $('nextBtn').click(); }
+  if (e.key==='Enter'){
+    if (fbPending){ e.preventDefault(); $('nextBtn').click(); return; } // 反馈中：回车即「继续」（修复勾选扩展词后焦点在释义框时回车无法跳题）
+    if (e.metaKey||e.ctrlKey){ e.preventDefault(); $('nextBtn').click(); }
+  }
 });
 
 /* ---------- 初始化 ---------- */
