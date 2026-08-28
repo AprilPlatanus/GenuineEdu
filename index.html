@@ -470,7 +470,7 @@ footer code{color:var(--gold2)}
     <label>✏️ 在下方空格上补全英文单词 <span class="ime-tag">请自行拼写 · 禁用输入法联想</span></label>
     <input type="text" id="inSpell" class="spell-input" placeholder="直接在下划线空格上补全" lang="en" inputmode="latin" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus>
     <div id="extWrap"></div>
-    <label id="lblOther" for="inOther">✏️ 其余词性 + 对应中文释义（多个用回车 / 逗号 / 分号分隔） <span class="ime-tag">中文</span></label>
+    <label id="lblOther" for="inOther">✏️ 其余词性 + 对应中文释义（多个用 Shift+Enter / 逗号 / 分号分隔，按 Enter 直接下一题） <span class="ime-tag">中文</span></label>
     <textarea id="inOther" rows="2" lang="zh-CN" inputmode="text" placeholder="示例：&#10;n. 放纵&#10;adj. 疯狂的"></textarea>
     <div id="fbArea" class="fb hidden"></div>
     <div id="enterTip" class="enter-tip"></div>
@@ -1184,9 +1184,9 @@ function renderQuestion(){
   // 回车跳题提示：按当前模式显示对应文案
   const hasExtInput = !!document.querySelector('#extArea .ext-input');
   $('enterTip').textContent = hasExtInput
-    ? '⌨️ 按 Enter 依次填写扩展词 · 扩展词框内回车继续'
+    ? '⌨️ 按 Enter 依次填写扩展词 · 最后一个回车直接下一题'
     : otherInputVisible()
-      ? '⌨️ 拼写框按 Enter 移到释义框 · 释义框内 Ctrl/Cmd + Enter 进入下一题'
+      ? '⌨️ 拼写框 Enter 移到释义框 · 释义框 Enter 直接下一题（Shift+Enter 换行分隔释义）'
       : '⌨️ 按 Enter 直接进入下一题';
   $('inSpell').focus();
   startTimer();
@@ -1675,10 +1675,12 @@ $('extWrap').addEventListener('keydown', e=>{
   else $('nextBtn').click();                               // 无释义框 → 下一题
 });
 $('inOther').addEventListener('keydown', e=>{
-  if (e.key==='Enter'){
-    if (fbPending){ e.preventDefault(); $('nextBtn').click(); return; } // 反馈中：回车即「继续」（修复勾选扩展词后焦点在释义框时回车无法跳题）
-    if (e.metaKey||e.ctrlKey){ e.preventDefault(); $('nextBtn').click(); }
+  // 普通回车（非 Shift）：直接跳转下一题/交卷（反馈中由 nextBtn 内部继续处理）
+  if (e.key==='Enter' && !e.shiftKey){
+    e.preventDefault();
+    $('nextBtn').click();
   }
+  // Shift+Enter：保留换行分隔多个释义（默认行为）
 });
 
 /* ---------- 初始化 ---------- */
