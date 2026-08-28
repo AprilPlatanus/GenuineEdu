@@ -1226,8 +1226,10 @@ function renderWrongBook(){
     groups.forEach(g=>{
       const d = new Date(g.rec.date);
       const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-      html += `<div style="margin:14px 0 6px;font-size:13px">
-        <b>🕐 ${ds}</b> <span class="muted">（本次错词 ${g.wrong.length} 个 · 共 ${g.rec.items.length} 词）</span>
+      const recIdx = records.indexOf(g.rec);
+      html += `<div style="margin:14px 0 6px;font-size:13px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <span><b>🕐 ${ds}</b> <span class="muted">（本次错词 ${g.wrong.length} 个 · 共 ${g.rec.items.length} 词）</span></span>
+        <button class="btn ghost sm" onclick="exportWrongCSVOnce(${recIdx})">⬇️ 导出本次错词 CSV</button>
       </div>
       <table class="wrong-table"><tr><th>单词</th><th>词性释义（完整）</th><th>拼写</th><th>错误详情</th></tr>`;
       g.wrong.forEach(w=>{
@@ -1299,6 +1301,19 @@ function exportWrongCSV(st){
     });
   });
   downloadCSV(`错词本_${st}_${new Date().toISOString().slice(0,10)}.csv`, rows);
+}
+/* 导出某一次测试的错词 CSV（错词本按时间分开后，单次测试独立导出） */
+function exportWrongCSVOnce(recIdx){
+  const r = records[recIdx];
+  if (!r) return;
+  const rows = [['学生','测试日期','单词','词性释义（完整）','错误详情']];
+  const d = new Date(r.date);
+  const dstr = d.toLocaleString('zh-CN');
+  r.items.filter(i=>i.wrong).forEach(w=>{
+    rows.push([r.student, dstr, w.word, sensesText(w, '；'), buildErrorDetail(w) || '—']);
+  });
+  const stamp = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
+  downloadCSV(`错词本_${r.student}_${stamp}.csv`, rows);
 }
 
 /* ---------- 输入法锁定 ---------- */
