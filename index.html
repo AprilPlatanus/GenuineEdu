@@ -267,10 +267,10 @@ footer code{color:var(--gold2)}
 .spell-only .q-ask b{font-size:30px}
 .spell-only .spell-input{font-size:64px;letter-spacing:10px;padding:30px 18px;min-height:130px}
 .spell-only #extWrap{max-height:26vh;overflow-y:auto}
-/* 勾选扩展词：扩展词区占比加大。普通模式：拼写/扩展词/释义各约 1/3；只拼写模式：拼写/扩展词各约 1/2 */
-.overlay:not(.spell-only).has-ext .spell-input{flex:1 1 33%;min-height:60px;font-size:52px;letter-spacing:6px;padding:20px 16px}
-.overlay:not(.spell-only).has-ext #extWrap{flex:1 1 33%;min-height:60px;max-height:none;overflow-y:auto}
-.overlay:not(.spell-only).has-ext #inOther{flex:1 1 33%;min-height:60px}
+/* 勾选扩展词：扩展词区占比加大。普通模式：拼写约1/4、扩展词约1/2、释义约1/3；只拼写模式：拼写约2/5、扩展词约3/5 */
+.overlay:not(.spell-only).has-ext .spell-input{flex:1 1 25%;min-height:44px;font-size:44px;letter-spacing:4px;padding:10px 14px}
+.overlay:not(.spell-only).has-ext #extWrap{flex:2 1 45%;min-height:80px;max-height:none;overflow-y:auto}
+.overlay:not(.spell-only).has-ext #inOther{flex:1 1 30%;min-height:44px}
 .spell-only.has-ext .exam{display:flex;flex-direction:column;height:92vh;box-sizing:border-box}
 .spell-only.has-ext .exam-top,
 .spell-only.has-ext .progress-bar,
@@ -278,8 +278,8 @@ footer code{color:var(--gold2)}
 .spell-only.has-ext .exam > label,
 .spell-only.has-ext .enter-tip,
 .spell-only.has-ext .nav-btns{flex:0 0 auto}
-.spell-only.has-ext .spell-input{flex:1 1 50%;min-height:90px;font-size:56px;letter-spacing:8px}
-.spell-only.has-ext #extWrap{flex:1 1 50%;min-height:90px;max-height:none;overflow-y:auto}
+.spell-only.has-ext .spell-input{flex:1 1 38%;min-height:56px;font-size:46px;letter-spacing:6px;padding:12px 16px}
+.spell-only.has-ext #extWrap{flex:2 1 62%;min-height:110px;max-height:none;overflow-y:auto}
 .spell-only.has-ext .fb{flex:0 1 auto;min-height:0;max-height:24vh;overflow-y:auto}
 /* 普通模式（需输入词性+释义）：整卡一屏显示、无需滚动；按钮始终可见；拼写框约占一半、释义框约占三分之一 */
 .overlay:not(.spell-only) .exam{display:flex;flex-direction:column;height:92vh;box-sizing:border-box}
