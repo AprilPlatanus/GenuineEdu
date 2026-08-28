@@ -89,58 +89,6 @@
   --text:#3a2230; --text2:#96687c; --good:#3f7d33; --bad:#c0452f; --info:#23667c;
   --shadow:0 8px 30px rgba(224,79,140,.15);
 }
-/* 主题：玫粉（主色 #EF6078 + 辅色紫粉 #C689AA + 米白底 #F9F7EA） */
-:root[data-theme="coral"]{
-  --bg:#1c1218; --panel:#2a1722; --panel2:#371e2d; --line:#5a3645;
-  --gold:#ef6078; --gold2:#c689aa; --gold-deep:#b83a60;
-  --text:#fde6ec; --text2:#c897a4; --good:#7fd6a2; --bad:#ff7a6e; --info:#c689aa;
-  --shadow:0 8px 30px rgba(239,96,120,.18);
-}
-:root[data-theme="coral"].light{
-  --bg:#f9f7ea; --panel:#ffffff; --panel2:#f9f0ed; --line:#e8d5cf;
-  --gold:#ef6078; --gold2:#c689aa; --gold-deep:#b83a60;
-  --text:#3a1f28; --text2:#8a6873; --good:#3f7d33; --bad:#c0452f; --info:#b07cc4;
-  --shadow:0 8px 30px rgba(239,96,120,.15);
-}
-/* 主题：钢蓝（主色 #4167B1 + 辅色淡蓝 #7AB1E8 + 淡蓝底 #DEF0F9 + 黑 #1B1F23） */
-:root[data-theme="steel"]{
-  --bg:#0e131c; --panel:#131a28; --panel2:#1a2438; --line:#2c3e5c;
-  --gold:#4167b1; --gold2:#7ab1e8; --gold-deep:#26488a;
-  --text:#e8f0fb; --text2:#8fa3bd; --good:#5ec98f; --bad:#ff7a6e; --info:#7ab1e8;
-  --shadow:0 8px 30px rgba(65,103,177,.22);
-}
-:root[data-theme="steel"].light{
-  --bg:#def0f9; --panel:#ffffff; --panel2:#e4effb; --line:#b8d4e9;
-  --gold:#4167b1; --gold2:#7ab1e8; --gold-deep:#1b1f23;
-  --text:#1b1f23; --text2:#6b7f99; --good:#2e8b57; --bad:#d1493f; --info:#4167b1;
-  --shadow:0 8px 30px rgba(65,103,177,.15);
-}
-/* 主题：国风（主色红 #D62828 + 辅色深蓝 #003049 + 浅黄底 #F8E9A1） */
-:root[data-theme="china"]{
-  --bg:#1a0e0a; --panel:#2a1410; --panel2:#381a14; --line:#5a261d;
-  --gold:#d62828; --gold2:#f8e9a1; --gold-deep:#003049;
-  --text:#fde6e0; --text2:#c89b91; --good:#7fd6a2; --bad:#ff7a6e; --info:#003049;
-  --shadow:0 8px 30px rgba(214,40,40,.22);
-}
-:root[data-theme="china"].light{
-  --bg:#f8e9a1; --panel:#ffffff; --panel2:#fff5d6; --line:#e8d89a;
-  --gold:#d62828; --gold2:#f8e9a1; --gold-deep:#003049;
-  --text:#1f0e0a; --text2:#8a4a3a; --good:#3f7d33; --bad:#a41b1b; --info:#003049;
-  --shadow:0 8px 30px rgba(214,40,40,.15);
-}
-/* 主题：鼠尾草（主色橄榄绿 #567357 + 辅色粉 #E58889 + 米粉底 #F9F0ED） */
-:root[data-theme="sage"]{
-  --bg:#0f1a13; --panel:#16221a; --panel2:#1c2c22; --line:#2e4a3a;
-  --gold:#567357; --gold2:#e58889; --gold-deep:#3a4f3c;
-  --text:#e6f3eb; --text2:#a4bea9; --good:#7fd6a2; --bad:#ff7a6e; --info:#e58889;
-  --shadow:0 8px 30px rgba(86,115,87,.20);
-}
-:root[data-theme="sage"].light{
-  --bg:#f9f0ed; --panel:#ffffff; --panel2:#f3e4dd; --line:#e0c7bd;
-  --gold:#567357; --gold2:#e58889; --gold-deep:#3a4f3c;
-  --text:#1d2b23; --text2:#6c8777; --good:#3f7d33; --bad:#c0452f; --info:#d47274;
-  --shadow:0 8px 30px rgba(86,115,87,.15);
-}
 *{box-sizing:border-box;margin:0;padding:0}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
@@ -341,10 +289,6 @@ footer code{color:var(--gold2)}
       <button data-theme="orange" style="background:linear-gradient(135deg,#ffc9a3,#e07a2e)" title="珊瑚暖橙"></button>
       <button data-theme="gray" style="background:linear-gradient(135deg,#c3cede,#5a6b82)" title="晨雾灰"></button>
       <button data-theme="pink" style="background:linear-gradient(135deg,#ffc1d4,#e04f8c)" title="梦幻粉"></button>
-      <button data-theme="coral" style="background:linear-gradient(135deg,#ef6078,#c689aa)" title="玫粉"></button>
-      <button data-theme="steel" style="background:linear-gradient(135deg,#4167b1,#7ab1e8)" title="钢蓝"></button>
-      <button data-theme="china" style="background:linear-gradient(135deg,#d62828,#003049)" title="国风"></button>
-      <button data-theme="sage" style="background:linear-gradient(135deg,#567357,#e58889)" title="鼠尾草"></button>
     </div>
     <button class="btn ghost sm" id="themeBtn">☀️ 切换浅色</button>
   </div>
@@ -769,7 +713,9 @@ function applyThemeBtn(){
   $('themeBtn').textContent = document.documentElement.classList.contains('light') ? '🌙 切换深色' : '☀️ 切换浅色';
 }
 function applyTheme(){
-  const name = localStorage.getItem('wt_themeName') || 'gold';
+  const VALID_THEMES = ['gold','blue','green','purple','orange','gray','pink'];
+  let name = localStorage.getItem('wt_themeName');
+  if (!VALID_THEMES.includes(name)) name = 'gold';
   document.documentElement.dataset.theme = name;
   document.documentElement.classList.toggle('light', localStorage.getItem('wt_theme')==='light');
   document.querySelectorAll('#themePicker button').forEach(b=>b.classList.toggle('on', b.dataset.theme===name));
