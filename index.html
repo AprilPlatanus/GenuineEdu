@@ -1226,10 +1226,17 @@ function showFeedback(g, q){
     document.querySelectorAll('#extArea .ext-input').forEach((inp,i)=>{
       const r = extRes[i];
       if (r) inp.classList.add(r.ok ? 'ok' : 'bad');
-      inp.disabled = true;
+      inp.disabled = true; // 禁用会导致焦点丢失，下方统一把焦点移到操作按钮
     });
   }
   $('enterTip').textContent = '⌨️ 按 Enter 继续进入下一题';
+  // 反馈后把焦点移到操作按钮：确保任意位置回车都能继续（扩展词框被禁用后焦点会落到页面空白处，回车无响应）
+  try{
+    const isLast = session && session.idx === session.questions.length-1;
+    const btn = isLast ? $('submitBtn') : $('nextBtn');
+    if (btn && btn.style.display !== 'none') btn.focus();
+    else $('inSpell').focus();
+  }catch(e){}
 }
 function hideFeedback(){
   $('fbArea').classList.add('hidden');
