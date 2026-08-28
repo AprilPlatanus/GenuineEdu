@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>单词速答 · 限时测验（分享版）</title>
+<style>
+:root{
+  --bg:#f4f6fa;
+  --card:#ffffff;
+  --line:#e4e8f0;
+  --line-2:#eef1f6;
+  --ink:#1b2233;
+  --ink-2:#5a6478;
+  --ink-3:#8d96a8;
+  --brand:#4f46e5;
+  --brand-soft:#eef0ff;
+  --ok:#16a34a;
+  --ok-soft:#e8f7ee;
+  --bad:#e11d48;
+  --bad-soft:#fdecef;
+  --warn:#d97706;
+  --warn-soft:#fdf3e3;
+  --radius:14px;
+  --shadow:0 1px 2px rgba(20,28,50,.05),0 8px 24px rgba(20,28,50,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  font-size:14px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;font-size:inherit;cursor:pointer}
+input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
+
+/* ---------- 布局 ---------- */
+.topbar{
+  background:var(--card);border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:50;
+}
+.topbar-inner{max-width:1080px;margin:0 auto;padding:0 20px;display:flex;align-items:center;gap:20px;height:56px}
+.logo{font-size:16px;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;gap:8px}
+.logo .dot{width:9px;height:9px;border-radius:50%;background:var(--brand)}
+.tabs{display:flex;gap:4px;margin-left:8px}
+.tab{
+  padding:6px 14px;border-radius:8px;border:none;background:transparent;
+  color:var(--ink-2);font-weight:500;transition:.15s;
+}
+.tab:hover{background:var(--line-2);color:var(--ink)}
+.tab.on{background:var(--brand-soft);color:var(--brand);font-weight:600}
+.spacer{flex:1}
+.mini{font-size:12px;color:var(--ink-3)}
+
+.wrap{max-width:1080px;margin:0 auto;padding:24px 20px 64px}
+.page{display:none}
+.page.on{display:block}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.pad{padding:20px}
+h2.sec{font-size:15px;margin:0 0 14px;font-weight:700;display:flex;align-items:center;gap:8px}
+h2.sec::before{content:"";width:3px;height:14px;background:var(--brand);border-radius:2px}
+.muted{color:var(--ink-2)}
+.tiny{font-size:12px;color:var(--ink-3)}
+
+/* ---------- 控件 ---------- */
+.btn{
+  border:1px solid var(--line);background:var(--card);color:var(--ink);
+  padding:8px 16px;border-radius:9px;font-weight:500;transition:.15s;
+}
+.btn:hover{border-color:#c9d1e0;background:#fafbfd}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.primary:hover{background:#4338ca;border-color:#4338ca}
+.btn.ghost{border-color:transparent;background:var(--line-2)}
+.btn.ghost:hover{background:#e6eaf2}
+.btn.sm{padding:5px 11px;font-size:13px;border-radius:8px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:6px;letter-spacing:.2px}
+.input,textarea.input,select.input{
+  width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:9px;
+  background:#fff;outline:none;transition:.15s;
+}
+.input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+textarea.input{resize:vertical;min-height:180px;line-height:1.9;font-size:13px}
+select.input{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4.5L6 8.5L10 4.5' stroke='%238d96a8' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--line-2);border-radius:9px;padding:3px;gap:2px}
+.seg button{border:none;background:transparent;padding:5px 12px;border-radius:7px;color:var(--ink-2);font-size:13px;font-weight:500}
+.seg button.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(20,28,50,.08)}
+input[type=range]{width:100%;accent-color:var(--brand)}
+.chk{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:var(--ink-2)}
+.chk input{width:15px;height:15px;accent-color:var(--brand)}
+
+/* ---------- 词库页 ---------- */
+.bank-layout{display:grid;grid-template-columns:230px 1fr;gap:16px;align-items:start}
+.bank-list{display:flex;flex-direction:column;gap:4px}
+.bank-item{
+  display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:9px;
+  border:1px solid transparent;cursor:pointer;transition:.12s;
+}
+.bank-item:hover{background:var(--line-2)}
+.bank-item.on{background:var(--brand-soft);border-color:#d8d9fb}
+.bank-item .nm{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bank-item .ct{font-size:11px;color:var(--ink-3);flex-shrink:0}
+.bank-item .del{opacity:0;border:none;background:transparent;color:var(--ink-3);padding:0 2px;font-size:15px;line-height:1}
+.bank-item:hover .del{opacity:1}
+.bank-item .del:hover{color:var(--bad)}
+
+.wordtable{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{position:sticky;top:0;background:#fafbfd;text-align:left;padding:8px 12px;font-size:12px;color:var(--ink-2);font-weight:600;border-bottom:1px solid var(--line);z-index:1}
+tbody td{padding:7px 12px;border-bottom:1px solid var(--line-2)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:#fafbfd}
+
+/* ---------- 测试页 ---------- */
+.setup-grid{display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start}
+.quiz-stage{display:none}
+.quiz-stage.on{display:block}
+.stage-top{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.prog{flex:1;height:7px;background:var(--line-2);border-radius:99px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--brand);border-radius:99px;transition:width .3s}
+.stat-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:99px;font-size:12px;font-weight:600;background:var(--line-2);color:var(--ink-2)}
+.stat-pill.ok{background:var(--ok-soft);color:var(--ok)}
+.stat-pill.bad{background:var(--bad-soft);color:var(--bad)}
+
+.ring-box{display:flex;flex-direction:column;align-items:center;gap:14px;padding:26px 20px 10px}
+.ring{position:relative;width:172px;height:172px}
+.ring svg{transform:rotate(-90deg)}
+.ring .track{fill:none;stroke:var(--line-2);stroke-width:11}
+.ring .bar{fill:none;stroke:var(--brand);stroke-width:11;stroke-linecap:round;transition:stroke-dashoffset .1s linear,stroke .2s}
+.ring .num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .num b{font-size:40px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.ring .num span{font-size:11px;color:var(--ink-3);margin-top:5px;letter-spacing:.5px}
+.ring.warn .bar{stroke:var(--warn)}
+.ring.warn .num b{color:var(--warn)}
+.ring.danger .bar{stroke:var(--bad)}
+.ring.danger .num b{color:var(--bad)}
+
+.speaker{
+  width:58px;height:58px;border-radius:50%;border:none;background:var(--brand-soft);
+  color:var(--brand);font-size:23px;display:flex;align-items:center;justify-content:center;
+  transition:.15s;position:relative;
+}
+.speaker:hover{background:#e3e5ff}
+.speaker.playing{animation:pulse 1s ease-in-out infinite}
+.speaker:disabled{opacity:.4;cursor:not-allowed;animation:none}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(79,70,229,.32)}50%{box-shadow:0 0 0 13px rgba(79,70,229,0)}}
+.replay-note{font-size:12px;color:var(--ink-3)}
+
+.answer-box{max-width:520px;margin:0 auto;padding:6px 20px 22px;text-align:center}
+.answer-input{
+  width:100%;padding:13px 16px;font-size:18px;text-align:center;border:2px solid var(--line);
+  border-radius:12px;outline:none;transition:.15s;background:#fff;
+}
+.answer-input:focus{border-color:var(--brand);box-shadow:0 0 0 4px rgba(79,70,229,.1)}
+.answer-input:disabled{background:#f7f8fa;color:var(--ink-3)}
+.hintline{margin-top:9px;font-size:12px;color:var(--ink-3);min-height:18px}
+.hintline.rec{color:var(--bad);font-weight:600}
+
+.feedback{
+  max-width:520px;margin:14px auto 0;padding:16px 18px;border-radius:12px;display:none;text-align:center;
+}
+.feedback.on{display:block}
+.feedback.good{background:var(--ok-soft);border:1px solid #c6ecd5}
+.feedback.wrong{background:var(--bad-soft);border:1px solid #f8ccd6}
+.feedback .verdict{font-size:19px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px}
+.feedback.good .verdict{color:var(--ok)}
+.feedback.wrong .verdict{color:var(--bad)}
+.feedback .detail{margin-top:9px;font-size:14px}
+.feedback .detail em{font-style:normal;font-weight:700}
+.feedback .detail .zh{color:var(--ok);font-weight:700}
+
+/* ---------- 结果页 ---------- */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center}
+.kpi b{display:block;font-size:27px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums}
+.kpi span{font-size:12px;color:var(--ink-3)}
+.kpi.g b{color:var(--ok)}
+.kpi.r b{color:var(--bad)}
+.kpi.p b{color:var(--brand)}
+
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:12px}
+.bar-row .lb{width:132px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2)}
+.bar-row .tr{flex:1;height:9px;background:var(--line-2);border-radius:99px;overflow:hidden}
+.bar-row .tr i{display:block;height:100%;border-radius:99px}
+.bar-row .vl{width:44px;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-3)}
+
+.empty{text-align:center;padding:56px 20px;color:var(--ink-3)}
+.empty .ico{font-size:38px;opacity:.35}
+
+.toast{
+  position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);
+  background:#1b2233;color:#fff;padding:10px 20px;border-radius:99px;font-size:13px;
+  opacity:0;pointer-events:none;transition:.25s;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.2)
+}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (max-width:860px){
+  .bank-layout,.setup-grid{grid-template-columns:1fr}
+  .grid2,.grid3{grid-template-columns:1fr}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+}
+@media print{
+  .topbar,.btn,.no-print{display:none!important}
+  body{background:#fff}
+  .card{border-color:#ddd;box-shadow:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="logo"><span class="dot"></span>单词速答</div>
+    <div class="tabs">
+      <button class="tab on" data-page="bank">词库</button>
+      <button class="tab" data-page="quiz">测试</button>
+      <button class="tab" data-page="history">记录</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="mini" id="srTag"></div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ============ 词库 ============ -->
+  <div class="page on" id="page-bank">
+    <div class="bank-layout">
+      <div class="card pad">
+        <h2 class="sec">词书</h2>
+        <div class="bank-list" id="bankList"></div>
+        <button class="btn ghost sm" style="width:100%;margin-top:10px" id="btnNewBank">+ 新建词书</button>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card pad">
+          <div class="row" style="justify-content:space-between;margin-bottom:12px">
+            <h2 class="sec" style="margin:0" id="bankTitle">词书</h2>
+            <div class="row">
+              <button class="btn sm" id="btnRename">重命名</button>
+              <button class="btn sm" id="btnExportBank">导出</button>
+              <button class="btn sm" id="btnClearBank">清空</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>批量导入（每行一条，英文在前、中文在后，用逗号 / Tab / 分号 分隔）</label>
+            <textarea class="input" id="importBox" placeholder="abandon,放弃；抛弃&#10;benefit,益处；受益&#10;look forward to,期待"></textarea>
+          </div>
+          <div class="field">
+            <label>上传文件（.csv / .txt / .json，同样按行解析）</label>
+            <input type="file" id="fileInput" accept=".csv,.txt,.json" class="input" style="padding:7px">
+          </div>
+          <div class="row">
+            <button class="btn primary" id="btnImport">导入到当前词书</button>
+            <button class="btn" id="btnAddOne">逐条添加</button>
+            <span class="tiny">多个释义用「；」或「/」分隔，任一命中即算对</span>
+          </div>
+        </div>
+
+        <div class="card pad">
+          <div class="row" style="justify-content:space-between;margin-bottom:12px">
+            <h2 class="sec" style="margin:0">词条预览 <span class="tiny" id="wordCount"></span></h2>
+            <input class="input" id="searchWord" placeholder="搜索…" style="width:180px">
+          </div>
+          <div class="wordtable">
+            <table>
+              <thead><tr><th style="width:44px">#</th><th style="width:38%">英文</th><th>中文释义</th><th style="width:52px"></th></tr></thead>
+              <tbody id="wordBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 测试 ============ -->
+  <div class="page" id="page-quiz">
+    <div id="quizSetup">
+      <div class="setup-grid">
+        <div class="card pad">
+          <h2 class="sec">开始一轮测试</h2>
+          <div class="field">
+            <label>选择词书</label>
+            <select class="input" id="selBank"></select>
+          </div>
+          <div class="grid3">
+            <div class="field">
+              <label>每题限时</label>
+              <select class="input" id="selTime">
+                <option value="1">1 秒</option>
+                <option value="2">2 秒</option>
+                <option value="3">3 秒</option>
+                <option value="4">4 秒</option>
+                <option value="5">5 秒</option>
+                <option value="6">6 秒</option>
+                <option value="7">7 秒</option>
+                <option value="8" selected>8 秒</option>
+                <option value="10">10 秒</option>
+                <option value="0">不计时</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>题量</label>
+              <select class="input" id="selCount">
+                <option value="0" selected>全部</option>
+                <option value="10">随机 10 题</option>
+                <option value="20">随机 20 题</option>
+                <option value="30">随机 30 题</option>
+                <option value="50">随机 50 题</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>顺序</label>
+              <select class="input" id="selOrder">
+                <option value="seq">按词书顺序</option>
+                <option value="rand" selected>随机打乱</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>答题方式（进入测试后不可更改）</label>
+            <div class="seg" id="segMode">
+              <button data-m="text" class="on">⌨️ 文字输入</button>
+              <button data-m="voice">🎤 语音输入</button>
+            </div>
+            <div class="tiny" style="margin-top:6px">文字输入：键盘打字作答；语音输入：点击 🎤 开口作答、识别后自动提交。一旦开始测试，本方式锁定不可改。</div>
+          </div>
+          <div class="row" style="gap:18px;margin-bottom:4px">
+            <label class="chk"><input type="checkbox" id="chkAutoNext" checked> 答完自动进入下一题</label>
+            <label class="chk"><input type="checkbox" id="chkShowOnTimeout" checked> 超时后显示答案</label>
+          </div>
+        </div>
+
+        <div class="card pad">
+          <h2 class="sec">朗读设置</h2>
+          <div class="field">
+            <label>发音源（解决机读感）</label>
+            <div class="seg" id="segSource">
+              <button data-s="edge" class="on">Edge 神经语音（浏览器直连，推荐）</button>
+              <button data-s="baidu">百度真人</button>
+              <button data-s="youdao">有道真人</button>
+              <button data-s="system">系统语音</button>
+            </div>
+            <div class="tiny" style="margin-top:6px"><b>Edge 神经语音</b>：与 Azure 同款录音棚级音色，由每位学生的浏览器<b>直接</b>向 Microsoft 合成，完全免费、无需任何服务器；若个别浏览器/网络拦截则自动降级到系统语音。可填「自定义 TTS 代理地址」指定你自己的服务器以保证绝对保真。</div>
+            <div class="field" style="margin-top:10px">
+              <label>自定义 TTS 代理地址（可选，留空则用浏览器直连 Edge）</label>
+              <input class="input" id="ttsBase" placeholder="例如 https://你的隧道地址（需运行本机 server.py）">
+            </div>
+          </div>
+          <div class="field">
+            <label>口音</label>
+            <select class="input" id="selAccent">
+              <option value="US">美式（托福/雅思常用，推荐）</option>
+              <option value="GB">英式（雅思常见）</option>
+              <option value="AU">澳式</option>
+            </select>
+          </div>
+          <div id="minimaxBox" style="display:none">
+            <div class="field">
+              <label>MiniMax API Key</label>
+              <input class="input" id="mmKey" type="password" placeholder="粘贴 Bearer API Key">
+            </div>
+            <div class="grid2">
+              <div class="field">
+                <label>GroupId（可选，新版可不填）</label>
+                <input class="input" id="mmGroup" placeholder="平台「基本信息」里复制">
+              </div>
+              <div class="field">
+                <label>音色（英文）</label>
+                <select class="input" id="mmVoice">
+                  <option value="English_expressive_narrator">叙事女声（标准清晰）</option>
+                  <option value="English_radiant_girl">清亮女声</option>
+                  <option value="English_compelling_lady1">知性女声</option>
+                  <option value="English_ManWithDeepVoice">低沉男声（像教授）</option>
+                  <option value="English_Steadymentor">沉稳可靠男声</option>
+                  <option value="English_Gentle-voiced_man">温和男声</option>
+                  <option value="English_WiseScholar">学者男声</option>
+                  <option value="English_Aussie_Bloke">澳式男声</option>
+                </select>
+              </div>
+            </div>
+            <div class="tiny" style="margin-top:4px">MiniMax 语音合成，国内直连、手机号注册即送免费额度，音色可自由切换。</div>
+          </div>
+
+          <div id="azureBox" style="display:none">
+            <div class="field">
+              <label>Azure 语音密钥（Key）</label>
+              <input class="input" id="azKey" type="password" placeholder="粘贴 Speech 资源的 Key">
+            </div>
+            <div class="grid2">
+              <div class="field">
+                <label>区域（Region）</label>
+                <input class="input" id="azRegion" placeholder="如 eastasia">
+              </div>
+            </div>
+            <div class="tiny" style="margin-top:4px">口音 × 音色自动匹配发音人（美式女声 AriaNeural / 美式男声 AndrewNeural），与托福听力的男/女声一致。</div>
+          </div>
+          <div id="genderBox" style="display:none">
+            <div class="field">
+              <label>音色（男/女声）</label>
+              <div class="seg" id="segGender">
+                <button data-g="female" class="on">女声</button>
+                <button data-g="male">男声</button>
+              </div>
+            </div>
+            <div class="tiny" style="margin-top:4px">Edge / Azure 均按「口音 × 音色」自动匹配发音人：美式女 AriaNeural / 美式男 AndrewNeural，英式 Sonia / Ryan，澳式 Natasha / William，与托福听力的男/女声一致。</div>
+          </div>
+          <div class="field" id="rateField">
+            <label>语速 <span class="tiny" id="rateVal">0.9x</span></label>
+            <input type="range" id="rngRate" min="0.5" max="1.3" step="0.05" value="0.9">
+            <div class="tiny">有道真人音为固定语速，此滑块对 Edge / Azure / 系统语音生效</div>
+          </div>
+          <div class="field">
+            <label>可重播次数</label>
+            <select class="input" id="selReplay">
+              <option value="0">不可重播</option>
+              <option value="1">1 次</option>
+              <option value="2" selected>2 次</option>
+              <option value="99">不限</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>判定宽松度</label>
+            <select class="input" id="selStrict">
+              <option value="0.92">严格（几乎要完全一致）</option>
+              <option value="0.8" selected>标准（允许少量差异）</option>
+              <option value="0.62">宽松（关键词命中即算对）</option>
+            </select>
+          </div>
+          <button class="btn ghost sm" style="width:100%" id="btnTryVoice">🔊 试听</button>
+          <div class="tiny" style="margin-top:8px" id="voiceInfo"></div>
+        </div>
+      </div>
+
+      <div class="card pad" style="margin-top:16px;text-align:center">
+        <div class="muted" id="startSummary" style="margin-bottom:14px"></div>
+        <button class="btn primary" id="btnStart" style="padding:11px 40px;font-size:15px">开始测试</button>
+      </div>
+    </div>
+
+    <!-- 答题区 -->
+    <div class="quiz-stage" id="quizStage">
+      <div class="card pad">
+        <div class="stage-top">
+          <span class="stat-pill" id="pillIndex">1 / 20</span>
+          <div class="prog"><i id="progBar" style="width:0%"></i></div>
+          <span class="stat-pill ok" id="pillOk">✓ 0</span>
+          <span class="stat-pill bad" id="pillBad">✗ 0</span>
+          <button class="btn sm" id="btnQuit">结束</button>
+        </div>
+
+        <div class="ring-box">
+          <div class="ring" id="ring">
+            <svg width="172" height="172" viewBox="0 0 172 172">
+              <circle class="track" cx="86" cy="86" r="75"></circle>
+              <circle class="bar" id="ringBar" cx="86" cy="86" r="75"
+                      stroke-dasharray="471.24" stroke-dashoffset="0"></circle>
+            </svg>
+            <div class="num"><b id="leftNum">8.0</b><span id="leftTag">秒</span></div>
+          </div>
+          <button class="speaker" id="btnSpeak" title="重播（快捷键：空格 / R）">🔊</button>
+          <div class="replay-note" id="replayNote"></div>
+        </div>
+
+        <div class="answer-box">
+          <input class="answer-input" id="answerInput" placeholder="输入中文意思后按 Enter" autocomplete="off" autospellcheck="false">
+          <div class="hintline" id="hintLine">Enter 提交 · 空格重播</div>
+          <div class="row" style="justify-content:center;margin-top:12px">
+            <button class="btn primary" id="btnSubmit" style="padding:9px 28px">提交</button>
+            <button class="btn" id="btnMic">🎤 语音回答</button>
+            <button class="btn ghost" id="btnNext" style="display:none">下一题 →</button>
+          </div>
+        </div>
+
+        <div class="feedback" id="feedback"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 记录 ============ -->
+  <div class="page" id="page-history">
+    <div class="row" style="justify-content:space-between;margin-bottom:14px">
+      <h2 class="sec" style="margin:0">历史成绩</h2>
+      <div class="row">
+        <button class="btn sm" id="btnExportHis">导出 CSV</button>
+        <button class="btn sm" id="btnClearHis">清空记录</button>
+      </div>
+    </div>
+    <div id="hisList"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   单词速答 · 限时测验
+   ========================================================= */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const LS_BANKS = 'wd_banks_v1', LS_HIS = 'wd_history_v1', LS_SET = 'wd_settings_v1';
+
+/* ---------- 工具 ---------- */
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove('on'), 2000);
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function fmtD(ts){ const d=new Date(ts); const p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+
+/* 归一化：去掉空格与常见标点，统一小写 */
+function norm(s){
+  return String(s==null?'':s)
+    .toLowerCase()
+    .replace(/[\s\u3000]/g,'')
+    .replace(/[()（）\[\]【】<>《》,.，。、；;：:！!？?"'“”‘’·\-—_~～\/\\|+=*#@$%^&`]/g,'');
+}
+/* 编辑距离相似度 0~1 */
+function sim(a,b){
+  if(!a && !b) return 1;
+  if(!a || !b) return 0;
+  if(a===b) return 1;
+  const m=a.length,n=b.length;
+  if(Math.abs(m-n)>Math.max(m,n)*0.6) return 0;
+  let prev=Array.from({length:n+1},(_,j)=>j), cur=new Array(n+1);
+  for(let i=1;i<=m;i++){
+    cur[0]=i;
+    for(let j=1;j<=n;j++){
+      cur[j]=Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    }
+    [prev,cur]=[cur,prev];
+  }
+  return Math.max(0, 1 - prev[n]/Math.max(m,n));
+}
+/* 把标准答案拆成多个可接受的释义 */
+function splitAnswers(s){
+  return String(s).split(/[；;、\/｜|]+/).map(x=>norm(x)).filter(Boolean);
+}
+/* 判定：返回 {ok, score} */
+function judge(input, standard, threshold){
+  const ni = norm(input);
+  if(!ni) return {ok:false, score:0};
+  const answers = splitAnswers(standard);
+  let best = 0;
+  for(const a of answers){
+    if(!a) continue;
+    let s = 0;
+    if(ni === a) s = 1;
+    else if(ni.includes(a) || a.includes(ni)){
+      const short = Math.min(ni.length, a.length);
+      s = short >= 2 ? 0.95 : 0.5;          // 太短的词不轻易判包含
+    }else{
+      s = sim(ni, a);
+    }
+    if(s > best) best = s;
+  }
+  return {ok: best >= threshold, score: best};
+}
+
+/* ---------- 数据 ---------- */
+const SAMPLE = {
+  '基础词汇': `abandon,放弃；抛弃
+ability,能力；才能
+accept,接受；认可
+achieve,实现；达到
+advice,建议；忠告
+agree,同意
+allow,允许；准许
+answer,答案；回答
+appear,出现；显得
+believe,相信
+borrow,借入
+bright,明亮的；聪明的
+carry,携带；搬运
+change,改变；零钱
+choose,选择
+clear,清晰的；清除
+compare,比较
+complete,完成；完整的
+consider,考虑
+continue,继续
+danger,危险
+decide,决定
+depend,依靠；取决于
+develop,发展；开发
+discover,发现
+encourage,鼓励
+energy,能量；精力
+enough,足够的
+expect,期待；预料
+explain,解释
+famous,著名的
+follow,跟随；遵循
+forget,忘记
+happen,发生
+imagine,想象
+improve,改善；提高
+include,包括
+increase,增加
+interest,兴趣；利益
+introduce,介绍`,
+  '初中词汇': `advantage,优势；有利条件
+attitude,态度
+available,可获得的；有空的
+celebrate,庆祝
+challenge,挑战
+communicate,交流；沟通
+confidence,信心
+courage,勇气
+culture,文化
+decision,决定
+describe,描述
+difference,差异；差别
+education,教育
+environment,环境
+experience,经验；经历
+government,政府
+habit,习惯
+important,重要的
+instead,代替；反而
+knowledge,知识
+language,语言
+medicine,药；医学
+natural,自然的
+necessary,必要的
+opinion,观点；意见
+population,人口
+possible,可能的
+prepare,准备
+progress,进步
+protect,保护
+purpose,目的
+realize,意识到；实现
+receive,收到
+remember,记得
+similar,相似的
+society,社会
+suggest,建议
+support,支持
+traditional,传统的
+volunteer,志愿者`,
+  '核心词汇': `accommodate,容纳；住宿
+acknowledge,承认；致谢
+adequate,足够的；适当的
+ambiguous,模棱两可的
+anticipate,预料；期望
+apparent,明显的；表面的
+appropriate,恰当的
+arbitrary,任意的；专断的
+coherent,连贯的；条理清楚的
+compelling,引人入胜的；令人信服的
+comprehensive,全面的；综合的
+consequence,后果；结果
+considerable,相当大的
+consistent,一致的；始终如一的
+constitute,构成；组成
+contradict,反驳；与…矛盾
+contribute,贡献；促成
+deliberate,故意的；深思熟虑的
+demonstrate,证明；演示
+derive,源自；获得
+distinguish,区分；辨别
+eliminate,消除；淘汰
+emphasize,强调
+essential,必要的；本质的
+evident,明显的
+exaggerate,夸张；夸大
+explicit,明确的；清楚的
+fundamental,基本的；根本的
+generate,产生；生成
+hypothesis,假设
+implement,实施；执行
+implication,暗示；可能影响
+inevitable,不可避免的
+interpret,解释；口译
+justify,证明…正当
+maintain,维持；主张
+obtain,获得
+phenomenon,现象
+potential,潜力；潜在的
+reluctant,不情愿的
+significant,重要的；显著的
+subsequent,随后的
+substantial,大量的；实质的
+sufficient,充足的
+tremendous,巨大的；极好的
+ultimate,最终的；根本的
+undermine,削弱；损害
+verify,核实；验证
+widespread,广泛的`,
+  '冲刺词汇': `aesthetic,审美的；美学的
+alleviate,减轻；缓和
+anomaly,异常；不规则
+arbitrary,武断的；随意的
+brevity,简洁；短暂
+candid,坦率的；公正的
+catalyst,催化剂；促进因素
+censor,审查
+complacent,自满的
+condescend,屈尊；俯就
+converge,汇聚；趋同
+cryptic,隐晦的；神秘的
+deficit,赤字；不足
+diligent,勤奋的
+discrepancy,差异；不一致
+dogma,教条
+elusive,难以捉摸的
+empathy,同理心
+ephemeral,短暂的
+equivocate,含糊其辞
+flourish,繁荣；茂盛
+gratuitous,无缘无故的；免费的
+hiatus,间断；停顿
+impeccable,无可挑剔的
+innate,天生的；固有的
+juxtapose,并列；对比
+lucrative,利润丰厚的
+meticulous,一丝不苟的
+nostalgia,怀旧
+obsolete,过时的
+paradigm,范式；典范
+pragmatic,务实的
+precarious,不稳定的；危险的
+quintessential,典型的；精髓的
+resilient,有韧性的；能恢复的
+scrutinize,仔细检查
+sporadic,零星的；分散的
+stagnant,停滞的
+superfluous,多余的
+tenacious,顽强的；固执的
+truncate,截断
+ubiquitous,无处不在的
+unprecedented,前所未有的
+venerate,崇敬
+verbose,冗长的
+viable,可行的
+whimsical,异想天开的
+zealous,热情的；狂热的`,
+  '裸筛错词': ``
+};
+
+let banks = load(LS_BANKS, null);
+if(!banks){
+  banks = Object.entries(SAMPLE).map(([name,txt],i)=>({
+    id:uid(), name, words:parseBank(txt), builtin:true
+  }));
+  save(LS_BANKS, banks);
+}
+let history = load(LS_HIS, []);
+let settings = Object.assign({time:8,count:0,order:'rand',mode:'text',accent:'US',rate:0.9,replay:2,strict:0.8,autoNext:true,showTimeout:true,
+  source:'edge', ttsBase:'', azureKey:'', azureRegion:'eastasia', azureVoice:'en-US-AriaNeural', azureGender:'female',
+  mmKey:'', mmGroup:'', mmVoice:'English_expressive_narrator', mmModel:'speech-02-hd'}, load(LS_SET,{}));
+
+function load(k,d){ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } }
+function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ toast('本地存储写入失败'); } }
+function saveBanks(){ save(LS_BANKS, banks); }
+function saveSettings(){ save(LS_SET, settings); }
+
+function parseBank(text){
+  const out=[];
+  String(text||'').split(/\r?\n/).forEach(line=>{
+    const t=line.trim(); if(!t) return;
+    let en,zh;
+    if(/\t/.test(t))               [en,zh]=t.split('\t');
+    else if(t.includes(','))       { const i=t.indexOf(','); en=t.slice(0,i); zh=t.slice(i+1); }
+    else if(t.includes('，'))      { const i=t.indexOf('，'); en=t.slice(0,i); zh=t.slice(i+1); }
+    else if(t.includes(';'))       { const i=t.indexOf(';'); en=t.slice(0,i); zh=t.slice(i+1); }
+    else if(/\S\s{2,}\S/.test(t))  { const m=t.match(/^(\S.*?)\s{2,}(.+)$/); if(m){en=m[1];zh=m[2];} }
+    if(!en) return;
+    en=en.trim(); zh=(zh||'').trim();
+    if(!en) return;
+    out.push({en, zh});
+  });
+  return out;
+}
+
+/* ---------- 词库页渲染 ---------- */
+let curBankId = (banks[0]||{}).id;
+
+function renderBanks(){
+  $('#bankList').innerHTML = banks.map(b=>`
+    <div class="bank-item ${b.id===curBankId?'on':''}" data-id="${b.id}">
+      <span class="nm">${esc(b.name)}</span>
+      <span class="ct">${b.words.length}</span>
+      <button class="del" data-del="${b.id}" title="删除">×</button>
+    </div>`).join('');
+  const cb = banks.find(b=>b.id===curBankId);
+  $('#bankTitle').textContent = cb ? cb.name : '词书';
+  $('#selBank').innerHTML = banks.map(b=>`<option value="${b.id}">${esc(b.name)}（${b.words.length}）</option>`).join('');
+  if(cb) $('#selBank').value = cb.id;
+  renderWords();
+  updateStartSummary();
+}
+function renderWords(){
+  const cb = banks.find(b=>b.id===curBankId);
+  const q = norm($('#searchWord').value);
+  const list = cb ? cb.words : [];
+  const shown = q ? list.filter(w=>norm(w.en).includes(q)||norm(w.zh).includes(q)) : list;
+  $('#wordCount').textContent = `共 ${list.length} 条` + (q?` · 筛出 ${shown.length} 条`:'');
+  if(!shown.length){
+    $('#wordBody').innerHTML = `<tr><td colspan="4" style="text-align:center;color:#8d96a8;padding:26px">暂无词条</td></tr>`;
+    return;
+  }
+  $('#wordBody').innerHTML = shown.slice(0,500).map((w,i)=>`
+    <tr>
+      <td class="tiny">${i+1}</td>
+      <td><b>${esc(w.en)}</b></td>
+      <td>${esc(w.zh)}</td>
+      <td><button class="btn sm ghost" data-rm="${list.indexOf(w)}">删</button></td>
+    </tr>`).join('');
+}
+
+$('#bankList').addEventListener('click', e=>{
+  const del = e.target.dataset.del;
+  if(del){
+    const b = banks.find(x=>x.id===del);
+    if(!b) return;
+    if(!confirm(`确定删除词书「${b.name}」？此操作不可恢复。`)) return;
+    banks = banks.filter(x=>x.id!==del);
+    if(curBankId===del) curBankId = (banks[0]||{}).id;
+    saveBanks(); renderBanks(); return;
+  }
+  const item = e.target.closest('.bank-item');
+  if(item){ curBankId = item.dataset.id; renderBanks(); }
+});
+$('#btnNewBank').onclick = ()=>{
+  const name = prompt('新词书名称：', '新词书 ' + (banks.length+1));
+  if(!name) return;
+  banks.push({id:uid(), name:name.trim(), words:[]});
+  curBankId = banks[banks.length-1].id;
+  saveBanks(); renderBanks(); toast('已创建');
+};
+$('#btnRename').onclick = ()=>{
+  const b = banks.find(x=>x.id===curBankId); if(!b) return;
+  const name = prompt('重命名为：', b.name); if(!name) return;
+  b.name = name.trim(); saveBanks(); renderBanks();
+};
+$('#btnClearBank').onclick = ()=>{
+  const b = banks.find(x=>x.id===curBankId); if(!b) return;
+  if(!confirm(`确定清空「${b.name}」的全部词条？`)) return;
+  b.words = []; saveBanks(); renderBanks(); toast('已清空');
+};
+$('#btnExportBank').onclick = ()=>{
+  const b = banks.find(x=>x.id===curBankId); if(!b) return;
+  const txt = b.words.map(w=>`${w.en},${w.zh}`).join('\n');
+  download(`${b.name}.csv`, txt);
+};
+$('#btnImport').onclick = ()=>{
+  const b = banks.find(x=>x.id===curBankId); if(!b) return;
+  const parsed = parseBank($('#importBox').value);
+  if(!parsed.length){ toast('没有解析到有效条目'); return; }
+  b.words = b.words.concat(parsed);
+  saveBanks(); $('#importBox').value=''; renderBanks();
+  toast(`已导入 ${parsed.length} 条`);
+};
+$('#fileInput').addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    let text = String(r.result||'');
+    if(/\.json$/i.test(f.name)){
+      try{
+        const j = JSON.parse(text);
+        const arr = Array.isArray(j)?j:(j.words||j.list||[]);
+        text = arr.map(o=>Array.isArray(o)?o.join(','):`${o.en||o.english||o.word||''},${o.zh||o.chinese||o.meaning||''}`).join('\n');
+      }catch(err){ toast('JSON 解析失败'); return; }
+    }
+    $('#importBox').value = text;
+    toast('文件已读入，点「导入到当前词书」确认');
+  };
+  r.readAsText(f, 'UTF-8');
+  e.target.value='';
+});
+$('#btnAddOne').onclick = ()=>{
+  const b = banks.find(x=>x.id===curBankId); if(!b) return;
+  const en = prompt('英文：'); if(!en) return;
+  const zh = prompt('中文释义（多个用；分隔）：');
+  b.words.push({en:en.trim(), zh:(zh||'').trim()});
+  saveBanks(); renderBanks();
+};
+$('#searchWord').addEventListener('input', renderWords);
+$('#wordBody').addEventListener('click', e=>{
+  const i = e.target.dataset.rm;
+  if(i==null) return;
+  const b = banks.find(x=>x.id===curBankId); if(!b) return;
+  b.words.splice(Number(i),1); saveBanks(); renderWords(); renderBanks();
+});
+
+/* ---------- 语音合成 ---------- */
+const synth = window.speechSynthesis;
+let voices = [];
+function loadVoices(){ voices = synth ? synth.getVoices() : []; renderVoiceInfo(); }
+if(synth){ loadVoices(); synth.onvoiceschanged = loadVoices; }
+function pickVoice(){
+  const en = voices.filter(v=>/^en[-_]/i.test(v.lang));
+  if(!en.length) return null;
+  const want = settings.accent;
+  const order = want==='GB' ? ['en-GB','en-US','en-AU'] : want==='AU' ? ['en-AU','en-GB','en-US'] : ['en-US','en-GB','en-AU'];
+  for(const tag of order){
+    const hit = en.find(v=>v.lang.replace('_','-').toLowerCase().startsWith(tag.toLowerCase()));
+    if(hit) return hit;
+  }
+  return en.find(v=>v.localService) || en[0];
+}
+function renderVoiceInfo(){
+  const s = settings.source;
+  if(s==='edge'){
+    const g = settings.accent==='GB' ? '（英式）' : settings.accent==='AU' ? '（澳式）' : '（美式）';
+    const custom = (settings.ttsBase||'').trim();
+    $('#voiceInfo').innerHTML = custom
+      ? `发音源：<b>Edge 神经语音（自定义代理）</b>${g} · 走你填写的 TTS 代理地址，保真优先。`
+      : `发音源：<b>Edge 神经语音（浏览器直连）</b>${g} · 由本机浏览器直连 Microsoft 合成，免服务器；若被拦截则自动降级系统语音。`;
+  }else if(s==='auto'){
+    $('#voiceInfo').innerHTML = `发音源：<b>自动</b>（Edge → 百度真人 → 系统，故障自动切换）`;
+  }else if(s==='youdao'){
+    $('#voiceInfo').innerHTML = `发音源：<b>有道真人音</b>（${settings.accent==='GB'?'英式 RP':'美式 GA'}${settings.accent==='AU'?'，澳式暂用美音近似':''}）· 失败自动降级`;
+  }else if(s==='baidu'){
+    $('#voiceInfo').innerHTML = `发音源：<b>百度真人音</b>（${settings.accent==='GB'?'英式':'美式'}）· 稳定免密钥，失败自动降级`;
+  }else if(s==='minimax'){
+    $('#voiceInfo').innerHTML = `发音源：<b>MiniMax 云端</b> · ${esc(settings.mmVoice||'未选')}${settings.mmKey?'':' · <span style="color:#d97706">未填 Key</span>'}`;
+  }else if(s==='azure'){
+    $('#voiceInfo').innerHTML = `发音源：<b>Azure 云端</b> · ${esc(azureVoiceFor())}${settings.azureKey?'':' · <span style="color:#d97706">未填密钥</span>'}`;
+  }else{
+    const v = pickVoice();
+    $('#voiceInfo').innerHTML = v
+      ? `当前语音：<b>${esc(v.name)}</b>（${esc(v.lang)}）`
+      : `<span style="color:#d97706">未检测到英文神经语音包，将只显示文字。macOS 可在「系统设置 → 辅助功能 → 朗读内容 → 系统语音」中下载。</span>`;
+  }
+}
+/* ---- 发音源调度：自动降级链 ---- */
+function langTag(){ return settings.accent==='GB' ? 'en-GB' : settings.accent==='AU' ? 'en-AU' : 'en-US'; }
+function escapeXml(s){ return String(s).replace(/[<>&'"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c])); }
+const AZURE_GENDER = {
+  US:{male:'en-US-AndrewNeural', female:'en-US-AriaNeural'},
+  GB:{male:'en-GB-RyanNeural',  female:'en-GB-SoniaNeural'},
+  AU:{male:'en-AU-WilliamNeural', female:'en-AU-NatashaNeural'}
+};
+function azureVoiceFor(){
+  const m = AZURE_GENDER[settings.accent] || AZURE_GENDER.US;
+  return (settings.azureGender==='male' ? m.male : m.female) || 'en-US-AriaNeural';
+}
+/* 每个音源的健康状态：连续失败 2 次则本轮测试内暂时跳过 */
+const health = {};
+function sourceAlive(name){ const h=health[name]; return !h || h.fail<2; }
+function sourceOk(name){ if(health[name]) health[name].fail=0; }
+function sourceFail(name){ const h=health[name]||(health[name]={fail:0}); h.fail++; }
+const SRC_NAME = {speakEdge:'Edge 神经语音', speakBaidu:'百度真人', speakYoudao:'有道真人', speakSystem:'系统语音', speakMinimax:'MiniMax', speakAzure:'Azure'};
+
+function speak(text, cb, onStart){
+  let chain;
+  switch(settings.source){
+    case 'edge':    chain = [speakEdge, speakBaidu, speakSystem]; break;
+    case 'azure':   chain = [speakAzure]; break;
+    case 'system':  chain = [speakSystem]; break;
+    case 'minimax': chain = [speakMinimax, speakBaidu, speakSystem]; break;
+    case 'baidu':   chain = [speakBaidu, speakSystem]; break;
+    case 'youdao':  chain = [speakYoudao, speakBaidu, speakSystem]; break;
+    default:        chain = [speakEdge, speakBaidu, speakSystem]; // auto 推荐
+  }
+  chain = chain.filter((fn,i,arr)=> sourceAlive(SRC_NAME[fn]) || (fn===arr[arr.length-1])); // 末位兜底不跳过
+  let i=0, used=false, started=false;
+  const startOnce = ()=>{ if(started) return; started=true; if(onStart) onStart(); }; // 音频真正开播只触发一次
+  const step = ok=>{
+    if(used) return; used=true;
+    const fn = chain[i];
+    if(ok){ sourceOk(SRC_NAME[fn]); if(cb) cb(); return; }
+    sourceFail(SRC_NAME[fn]);
+    i++;
+    if(i>=chain.length){ if(cb) cb(); return; }
+    toastOnce(`当前音源不可用，改用${SRC_NAME[chain[i]]||'系统语音'}`);
+    used=false;
+    chain[i](text, step, startOnce);
+  };
+  chain[0](text, step, startOnce);
+}
+/* 当前正在播放的音频：保持强引用，避免被 GC 回收导致“只播后半段” */
+let currentAudio = null;
+function stopCurrentAudio(){
+  if(!currentAudio) return;
+  try{ currentAudio.pause(); }catch(e){}
+  try{ if(currentAudio.src && currentAudio.src.indexOf('blob:')===0) URL.revokeObjectURL(currentAudio.src); }catch(e){}
+  currentAudio.onended = currentAudio.onerror = currentAudio.oncanplaythrough = null;
+  currentAudio = null;
+}
+/* 通用音频播放：音频完整播完才回调 onStart（用于启动倒计时）；结束 ok=true，失败 ok=false。
+   关键修复：
+   - 改用 canplay（而非 only canplaythrough）即触发播放，避免个别情况下事件不触发导致“无音频”；
+   - 无音频看门狗：若约 4.5s 仍未出声，自动交降级链（百度/系统音），保证每题必有声音；
+   - 强引用防 GC 回收，整段缓冲完成(HTTP/1.1+Content-Length)后再播，杜绝“只放后半段”。 */
+function playAudio(url, onStart, onDone){
+  stopCurrentAudio();
+  const a = new Audio();
+  a.preload = 'auto';
+  currentAudio = a;
+  const btn = $('#btnSpeak');
+  btn.classList.add('playing');
+  let started=false, done=false, playing=false, kicked=false;
+  const begin = ()=>{ if(started) return; started=true; btn.classList.remove('playing'); if(onStart) onStart(); };
+  const finish = ok=>{
+    if(done) return; done=true;
+    btn.classList.remove('playing');
+    try{ a.pause(); }catch(e){}
+    a.onended = a.onerror = a.oncanplay = a.oncanplaythrough = a.onplaying = null;
+    if(a.src && a.src.indexOf('blob:')===0){ try{ URL.revokeObjectURL(a.src); }catch(e){} }
+    if(currentAudio===a) currentAudio = null;
+    if(onDone) onDone(ok);
+  };
+  const kick = ()=>{               // 触发一次播放
+    if(kicked || done) return; kicked=true;
+    try{
+      const p = a.play();
+      if(p && p.then) p.then(()=>{ playing=true; }).catch(()=>{ playing=false; });
+      else playing=true;
+    }catch(e){ playing=false; }
+  };
+  const retry = ()=>{ if(done) return; kicked=false; try{ a.load(); }catch(e){} kick(); };
+  a.oncanplay = kick;             // 缓冲到可播就开播（比 canplaythrough 更可靠，根治“无音频”）
+  a.oncanplaythrough = kick;
+  a.onplaying = ()=>{ playing=true; btn.classList.remove('playing'); };
+  a.onended = ()=>{ begin(); finish(true); };   // 单词完整播完才启动倒计时
+  a.onerror = ()=>finish(false);
+  a.src = url;
+  setTimeout(kick, 400);                              // 兜底：canplay 迟迟不来也试着播
+  setTimeout(()=>{ if(!playing && !done) retry(); }, 2500);  // 卡住则重载再试一次
+  setTimeout(()=>{ if(!playing && !done) finish(false); }, 4500); // 仍无音频→交给降级链（百度/系统）
+  setTimeout(()=>{ if(!done){ if(!started) begin(); finish(false); } }, 12000); // 硬上限
+  return a;
+}
+/* 有道真人音（type=1 英音 / type=2 美音，最接近托福/雅思听力） */
+function speakYoudao(text, onDone, onStart){
+  const type = settings.accent==='GB' ? 1 : 2;
+  return playAudio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=${type}`, onStart, onDone);
+}
+/* 百度真人音（国内稳定，免密钥） */
+function speakBaidu(text, onDone, onStart){
+  return playAudio(`https://fanyi.baidu.com/gettts?lan=en&text=${encodeURIComponent(text)}&spd=3&source=web`, onStart, onDone);
+}
+/* ---------- 浏览器直连 Edge 神经语音（无需任何服务器） ---------- */
+function uuid(){ return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;const v=c==='x'?r:(r&0x3|0x8);return v.toString(16);}); }
+function rateToEdge(r){ r=Number(r)||1.0; if(r<0.95) return '-'+Math.round((1-r)*100)+'%'; if(r>1.05) return '+'+Math.round((r-1)*100)+'%'; return '+0%'; }
+function speakEdge(text, onDone, onStart){
+  const accent = settings.accent || 'US';
+  const gender = settings.azureGender || 'female';
+  const rate = settings.rate || 1.0;
+  const base = (settings.ttsBase||'').trim().replace(/\/+$/,'');
+  if(base){ // 走自定义代理（如本机 server.py 经隧道公开）
+    const url = `${base}/tts?text=${encodeURIComponent(text)}&accent=${encodeURIComponent(accent)}&gender=${encodeURIComponent(gender)}&rate=${encodeURIComponent(rate)}`;
+    return playAudio(url, onStart, onDone);
+  }
+  return speakEdgeBrowser(text, accent, gender, rate, onStart, onDone);
+}
+/* 浏览器直连 Microsoft Edge 语音接口（wss），由各学生设备本地合成，无需后端 */
+function speakEdgeBrowser(text, accent, gender, rate, onStart, onDone){
+  const VOICE = {
+    US:{male:'en-US-AndrewNeural',female:'en-US-AriaNeural'},
+    GB:{male:'en-GB-RyanNeural',female:'en-GB-SoniaNeural'},
+    AU:{male:'en-AU-WilliamNeural',female:'en-AU-NatashaNeural'}
+  };
+  const v = (VOICE[accent]||VOICE.US)[gender==='male'?'male':'female'];
+  const lt = accent==='GB' ? 'en-GB' : accent==='AU' ? 'en-AU' : 'en-US';
+  const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${lt}'><voice name='${v}'><prosody rate='${rateToEdge(rate)}'>${escapeXml(text)}</prosody></voice></speak>`;
+  const TOKEN = '6A5AA1D4EAFF4E9FB37E23A5120D3B94';
+  const wsUrl = `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=${TOKEN}&ConnectionId=${uuid()}`;
+  let ws;
+  try{ ws = new WebSocket(wsUrl, 'event-stream-protocol'); }
+  catch(e){ return onDone(false); }
+  ws.binaryType = 'arraybuffer';
+  const chunks = []; let gotAudio = false, closed = false;
+  const fail = ()=>{ if(closed) return; closed = true; try{ ws.close(); }catch(e){} onDone(false); };
+  ws.onopen = ()=>{
+    try{
+      ws.send(`Content-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":false,"wordBoundaryEnabled":false},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}`);
+      ws.send(`X-RequestId:${uuid()}\r\nContent-Type:application/ssml+xml\r\nPath:ssml\r\n\r\n${ssml}`);
+    }catch(e){ fail(); }
+  };
+  ws.onmessage = ev=>{
+    if(typeof ev.data === 'string') return; // 文本帧（turn.start/end）忽略
+    try{
+      const bytes = new Uint8Array(ev.data);
+      if(bytes.length < 2) return;
+      const hl = (bytes[0] << 8) | bytes[1];
+      if(2 + hl > bytes.length) return;
+      const header = new TextDecoder().decode(bytes.subarray(2, 2+hl));
+      if(header.indexOf('Path:audio') !== -1){ chunks.push(bytes.subarray(2+hl)); gotAudio = true; }
+    }catch(e){}
+  };
+  ws.onerror = ()=>fail();
+  setTimeout(()=>{ if(!gotAudio) fail(); }, 12000); // 12s 仍无音频则降级
+  ws.onclose = ()=>{
+    if(closed) return; closed = true;
+    if(gotAudio && chunks.length){
+      const blob = new Blob(chunks, {type:'audio/mpeg'});
+      const u = URL.createObjectURL(blob);
+      playAudio(u, onStart, onDone); // 复用缓冲/防截断/看门狗逻辑
+    }else{
+      onDone(false);
+    }
+  };
+}
+/* MiniMax 云端（录音棚级，手机号注册，国内直连） */
+function hexToBytes(hex){
+  hex = String(hex||'').trim();
+  const out = new Uint8Array(hex.length/2);
+  for(let i=0;i<out.length;i++) out[i] = parseInt(hex.substr(i*2,2), 16);
+  return out;
+}
+async function speakMinimax(text, onDone, onStart){
+  const key=settings.mmKey, grp=(settings.mmGroup||'').trim();
+  if(!key){ toastOnce('未填 MiniMax Key'); return onDone(false); }
+  // 新版 sk-api- Key 可不填 GroupId；填了则带上（兼容老版）
+  const url = grp ? `https://api.minimaxi.com/v1/t2a_v2?GroupId=${encodeURIComponent(grp)}`
+                  : 'https://api.minimaxi.com/v1/t2a_v2';
+  try{
+    const resp = await fetch(url, {
+      method:'POST',
+      headers:{'Authorization':'Bearer '+key, 'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: settings.mmModel || 'speech-02-hd',
+        text, stream:false,
+        voice_setting:{voice_id: settings.mmVoice || 'English_expressive_narrator', speed:1.0, vol:1.0, pitch:0},
+        audio_setting:{sample_rate:32000, bitrate:128000, format:'mp3', channel:1},
+        language_boost:'English'
+      })
+    });
+    if(!resp.ok){ toastOnce('MiniMax 返回 '+resp.status); return onDone(false); }
+    const j = await resp.json();
+    if(!j || (j.base_resp && j.base_resp.status_code!==0)){
+      const msg = (j&&j.base_resp&&j.base_resp.status_msg)||'合成失败';
+      toastOnce('MiniMax：'+msg);
+      return onDone(false);
+    }
+    const hex = j.data && j.data.audio;
+    if(!hex){ return onDone(false); }
+    const blob = new Blob([hexToBytes(hex)], {type:'audio/mpeg'});
+    playAudio(URL.createObjectURL(blob), onStart, onDone);
+  }catch(e){ toastOnce('MiniMax 请求失败'); onDone(false); }
+}
+/* 系统神经语音（最终兜底） */
+function speakSystem(text, onDone, onStart){
+  if(!synth){ if(onStart) onStart(); return onDone(false); }
+  synth.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  const v = pickVoice();
+  if(v) u.voice = v;
+  u.lang = v ? v.lang : 'en-US';
+  u.rate = Number(settings.rate)||0.9;
+  u.pitch = 1;
+  const btn = $('#btnSpeak');
+  btn.classList.add('playing');
+  let finished=false, called=false;
+  const done = ok=>{ if(finished) return; finished=true; btn.classList.remove('playing');
+    if(!called){ called=true; onDone && onDone(ok); } };
+  u.onstart = ()=>{ if(onStart) onStart(); };
+  u.onend = ()=>done(true);
+  u.onerror = ()=>done(false);
+  synth.speak(u);
+  setTimeout(()=>{ if(!synth.speaking) done(true); }, 2500); // Safari 兜底
+}
+/* Azure 神经网络语音（录音棚级，需密钥） */
+async function speakAzure(text, onDone, onStart){
+  const key=settings.azureKey, region=settings.azureRegion, voice=azureVoiceFor();
+  if(!key||!region){ toastOnce('未填 Azure 密钥/区域'); if(onStart) onStart(); return onDone(false); }
+  const url = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
+  const lt = langTag();
+  const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${lt}'><voice name='${voice}'>${escapeXml(text)}</voice></speak>`;
+  try{
+    const resp = await fetch(url, {
+      method:'POST',
+      headers:{'Ocp-Apim-Subscription-Key':key,'Content-Type':'application/ssml+xml','X-Microsoft-OutputFormat':'audio-16khz-32kbitrate-mono-mp3'},
+      body: ssml
+    });
+    if(!resp.ok){ toastOnce('Azure 返回 '+resp.status); return onDone(false); }
+    const blob = new Blob([await resp.arrayBuffer()], {type:'audio/mpeg'});
+    playAudio(URL.createObjectURL(blob), onStart, onDone);
+  }catch(e){ toastOnce('Azure 请求失败（可能跨域限制）'); onDone(false); }
+}
+/* 防抖提示，避免重复刷屏 */
+let _tOnce=0;
+function toastOnce(msg){ const now=Date.now(); if(now-_tOnce<2500) return; _tOnce=now; toast(msg); }
+$('#btnTryVoice').onclick = ()=> speak('pronunciation');
+
+/* ---------- 语音识别 ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, recording = false;
+if(SR){
+  $('#srTag').textContent = '🎤 语音识别可用';
+}else{
+  $('#srTag').innerHTML = '<span style="color:#d97706">当前浏览器不支持语音识别，请用 Chrome / Edge，或改用键盘输入</span>';
+  $('#btnMic').disabled = true;
+  $('#btnMic').title = '浏览器不支持';
+}
+function startRec(){
+  if(recording){ stopRec(); return; }
+  if(!SR){ toast('浏览器不支持语音识别'); return; }
+  try{ rec = new SR(); }catch(e){ toast('无法启动麦克风'); return; }
+  rec.lang = 'zh-CN';
+  rec.interimResults = true;
+  rec.continuous = false;
+  rec.maxAlternatives = 3;
+  rec.onstart = ()=>{
+    recording = true;
+    $('#btnMic').textContent = '⏹ 停止识别';
+    $('#btnMic').classList.add('primary');
+    $('#hintLine').textContent = '正在聆听…说出答案';
+    $('#hintLine').classList.add('rec');
+  };
+  rec.onresult = e=>{
+    let final='', interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t = e.results[i][0].transcript;
+      if(e.results[i].isFinal) final += t; else interim += t;
+    }
+    if(final){
+      $('#answerInput').value = final.trim();
+      if(Q.mode==='voice'){
+        $('#hintLine').textContent = '已识别：'+final.trim()+'，即将自动提交…';
+        $('#hintLine').classList.remove('rec');
+        if(!Q.locked) Q.timerId = setTimeout(()=>submitAnswer(), 1100); // 语音模式：识别后自动提交
+      }else{
+        $('#hintLine').textContent = '已识别，点「提交」确认';
+        $('#hintLine').classList.remove('rec');
+        if(!$('#btnSubmit').disabled) $('#btnSubmit').focus();
+      }
+    }else if(interim){
+      if(Q.mode!=='voice') $('#answerInput').value = interim.trim();
+    }
+  };
+  rec.onerror = ev=>{
+    recording = false;
+    $('#btnMic').textContent = '🎤 语音回答';
+    $('#btnMic').classList.remove('primary');
+    $('#hintLine').classList.remove('rec');
+    const msg = ev.error==='not-allowed' ? '麦克风权限被拒绝' :
+                ev.error==='no-speech' ? '没有听到声音' :
+                ev.error==='network' ? '识别服务不可用（需联网），请改用文字输入' : '识别出错：'+ev.error;
+    $('#hintLine').textContent = msg;
+    // 语音模式：没听到声音则自动重听一次，减少手动点击
+    if(Q.mode==='voice' && ev.error==='no-speech' && !Q.locked && !Q.finish && (Q.recRestarts||0)<2){
+      Q.recRestarts = (Q.recRestarts||0)+1;
+      setTimeout(()=>{ if(!Q.locked && !Q.finish && !recording) startRec(); }, 700);
+    }
+  };
+  rec.onend = ()=>{
+    recording = false;
+    $('#btnMic').textContent = '🎤 语音回答';
+    $('#btnMic').classList.remove('rec');
+    $('#btnMic').classList.remove('primary');
+    $('#hintLine').classList.remove('rec');
+    if(!$('#hintLine').textContent.includes('已识别'))
+      $('#hintLine').textContent = Q.mode==='voice' ? '🎤 说出答案，识别后会自动提交' : 'Enter 提交 · 空格重播';
+  };
+  try{ rec.start(); }catch(e){ toast('麦克风启动失败'); }
+}
+function stopRec(){ if(rec && recording){ try{ rec.stop(); }catch(e){} } }
+$('#btnMic').onclick = startRec;
+
+/* ---------- 设置绑定 ---------- */
+function bindSettings(){
+  $('#selBank').value = settings.bankId && banks.some(b=>b.id===settings.bankId) ? settings.bankId : (banks[0]||{}).id;
+  $('#selTime').value = String(settings.time);
+  $('#selCount').value = String(settings.count);
+  $('#selOrder').value = settings.order;
+  $('#selAccent').value = settings.accent;
+  $('#rngRate').value = settings.rate;
+  $('#rateVal').textContent = Number(settings.rate).toFixed(2).replace(/0$/,'')+'x';
+  $('#selReplay').value = String(settings.replay);
+  $('#selStrict').value = String(settings.strict);
+  $('#chkAutoNext').checked = settings.autoNext;
+  $('#chkShowOnTimeout').checked = settings.showTimeout;
+  $$('#segSource button').forEach(b=>b.classList.toggle('on', b.dataset.s===settings.source));
+  $$('#segMode button').forEach(b=>b.classList.toggle('on', b.dataset.m===settings.mode));
+  $('#azureBox').style.display = settings.source==='azure' ? '' : 'none';
+  $('#genderBox').style.display = (settings.source==='azure' || settings.source==='edge') ? '' : 'none';
+  $('#minimaxBox').style.display = settings.source==='minimax' ? '' : 'none';
+  $('#ttsBase').value = settings.ttsBase||'';
+  $('#azKey').value = settings.azureKey||'';
+  $('#azRegion').value = settings.azureRegion||'eastasia';
+  $$('#segGender button').forEach(b=>b.classList.toggle('on', b.dataset.g===settings.azureGender));
+  $('#mmKey').value = settings.mmKey||'';
+  $('#mmGroup').value = settings.mmGroup||'';
+  $('#mmVoice').value = settings.mmVoice||'English_expressive_narrator';
+  updateStartSummary();
+}
+function readSettings(){
+  settings.bankId = $('#selBank').value;
+  settings.time = Number($('#selTime').value);
+  settings.count = Number($('#selCount').value);
+  settings.order = $('#selOrder').value;
+  const modeBtn = $('#segMode .on');
+  settings.mode = modeBtn ? modeBtn.dataset.m : 'text';
+  settings.accent = $('#selAccent').value;
+  settings.rate = Number($('#rngRate').value);
+  settings.replay = Number($('#selReplay').value);
+  settings.strict = Number($('#selStrict').value);
+  settings.autoNext = $('#chkAutoNext').checked;
+  settings.showTimeout = $('#chkShowOnTimeout').checked;
+  const srcBtn = $('#segSource .on');
+  settings.source = srcBtn ? srcBtn.dataset.s : 'edge';
+  settings.ttsBase = ($('#ttsBase').value||'').trim();
+  settings.azureKey = $('#azKey').value.trim();
+  settings.azureRegion = $('#azRegion').value.trim();
+  const gBtn = $('#segGender .on');
+  settings.azureGender = gBtn ? gBtn.dataset.g : 'female';
+  $('#azureBox').style.display = settings.source==='azure' ? '' : 'none';
+  $('#genderBox').style.display = (settings.source==='azure' || settings.source==='edge') ? '' : 'none';
+  $('#minimaxBox').style.display = settings.source==='minimax' ? '' : 'none';
+  settings.mmKey = $('#mmKey').value.trim();
+  settings.mmGroup = $('#mmGroup').value.trim();
+  settings.mmVoice = $('#mmVoice').value;
+  saveSettings();
+  renderVoiceInfo();
+  updateStartSummary();
+}
+['#selBank','#selTime','#selCount','#selOrder','#selAccent','#selReplay','#selStrict']
+  .forEach(s=>$(s).addEventListener('change', readSettings));
+$('#rngRate').addEventListener('input', ()=>{ $('#rateVal').textContent = Number($('#rngRate').value).toFixed(2)+'x'; readSettings(); });
+$('#segSource').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  $$('#segSource button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  readSettings();
+});
+$('#segGender').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  $$('#segGender button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  readSettings();
+});
+$('#segMode').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  $$('#segMode button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  readSettings();
+});
+['#azKey','#azRegion'].forEach(s=>$(s).addEventListener('change', readSettings));
+['#mmKey','#mmGroup','#mmVoice'].forEach(s=>$(s).addEventListener('change', readSettings));
+$('#ttsBase').addEventListener('change', readSettings);
+['#chkAutoNext','#chkShowOnTimeout'].forEach(s=>$(s).addEventListener('change', readSettings));
+
+function updateStartSummary(){
+  const b = banks.find(x=>x.id===$('#selBank').value) || banks[0];
+  if(!b){ $('#startSummary').textContent = '请先在「词库」页创建词书'; return; }
+  const n = Math.min(b.words.length || 0, Number($('#selCount').value) || b.words.length);
+  const t = Number($('#selTime').value);
+  const modeTxt = settings.mode==='voice' ? '语音输入' : '文字输入';
+  $('#startSummary').innerHTML =
+    `词书 <b>${esc(b.name)}</b> · 共 <b>${n}</b> 题 · 每题 <b>${t?t+' 秒':'不限时'}</b> · 方式 <b>${modeTxt}</b> · ` +
+    `预计 <b>${t?Math.ceil(n*(t+1.8)/60):'—'}${t?' 分钟':''}</b>`;
+}
+
+/* ---------- 测试流程 ---------- */
+const CIRC = 2*Math.PI*75; // 471.24
+let Q = { list:[], i:0, total:0, ok:0, records:[], t0:0, deadline:0, raf:0, locked:false, replayLeft:0, timerId:0, finish:false };
+
+function startQuiz(){
+  readSettings();
+  Object.keys(health).forEach(k=>delete health[k]);   // 每轮重置音源健康度，重新探测 Edge
+  let mode = settings.mode;
+  if(mode==='voice' && !SR){ toast('当前浏览器不支持语音识别，已改用文字输入'); mode='text'; }
+  const b = banks.find(x=>x.id===settings.bankId);
+  if(!b || !b.words.length){ toast('该词书还没有词条'); return; }
+  let list = b.words.slice();
+  if(settings.order === 'rand') list = shuffle(list);
+  const c = Number(settings.count);
+  if(c > 0 && c < list.length) list = list.slice(0, c);
+
+  Q = { bank:b.name, list, i:0, total:list.length, ok:0, records:[], mode,
+        t0:Date.now(), startAt:Date.now(), deadline:0, raf:0, locked:false, replayLeft:0, recRestarts:0, timerId:0, finish:false };
+
+  $('#quizSetup').style.display='none';
+  $('#quizStage').classList.add('on');
+  $('#pillOk').textContent='✓ 0'; $('#pillBad').textContent='✗ 0';
+  unlockAudio();   // 借开始按钮的用户手势解锁自动播放，避免首题静音
+  prewarm();       // 后台预热前若干词音频，首题也不卡
+  nextQuestion();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* 在用户手势内播放一段静音，解锁浏览器自动播放策略（当页会话内生效） */
+function unlockAudio(){
+  try{
+    const a = new Audio();
+    a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+    a.volume = 0.001;
+    a.play().catch(()=>{});
+  }catch(e){}
+}
+/* 后台预热：把前面若干词的音频先让服务器合成并缓存，正式播放时即点即响 */
+function prewarm(){
+  const accent = settings.accent||'US', gender = settings.azureGender||'female', rate = settings.rate||1.0;
+  const base = `/tts?accent=${encodeURIComponent(accent)}&gender=${encodeURIComponent(gender)}&rate=${encodeURIComponent(rate)}&text=`;
+  Q.list.slice(0, 12).forEach((w, idx)=>{
+    setTimeout(()=>{ try{ fetch(base + encodeURIComponent(w.en), {cache:'force-cache'}).catch(()=>{}); }catch(e){} }, idx*120);
+  });
+}
+
+/* 按答题方式切换答题区 UI（每题重置一次，测试过程中 mode 已锁定） */
+function applyAnswerMode(mode){
+  const isVoice = mode==='voice';
+  if(isVoice){
+    $('#answerInput').placeholder = '点击下方 🎤 说出中文释义（识别后自动提交）';
+    $('#answerInput').disabled = true;
+    $('#btnMic').style.display = '';
+    $('#btnMic').classList.add('primary');
+    $('#btnSubmit').style.display = 'none';
+    $('#hintLine').textContent = '🎤 说出答案，识别后会自动提交';
+  }else{
+    $('#answerInput').placeholder = '输入中文意思后按 Enter';
+    $('#answerInput').disabled = Q.locked;
+    $('#btnMic').style.display = 'none';
+    $('#btnMic').classList.remove('primary');
+    $('#btnSubmit').style.display = '';
+    $('#hintLine').textContent = 'Enter 提交 · 空格重播';
+  }
+  $('#hintLine').classList.remove('rec');
+}
+
+function nextQuestion(){
+  if(Q.i >= Q.total){ finishQuiz(); return; }
+  const w = Q.list[Q.i];
+  Q.locked = false;
+  Q.replayLeft = Number(settings.replay);
+  $('#feedback').classList.remove('on','good','wrong');
+  $('#answerInput').value='';
+  $('#answerInput').disabled=false;
+  $('#btnSubmit').disabled=false;
+  $('#btnNext').style.display='none';
+  $('#btnSpeak').disabled = Q.replayLeft<=0;
+  Q.recRestarts = 0;
+  applyAnswerMode(Q.mode);
+  $('#pillIndex').textContent = `${Q.i+1} / ${Q.total}`;
+  $('#progBar').style.width = (Q.i/Q.total*100)+'%';
+  updateReplayNote();
+  setTimeout(()=>{ try{ $('#answerInput').focus(); }catch(e){} }, 30);
+
+  // 倒计时不等渲染，而等“音频完整播完”才开始 —— 学生听到完整单词后才计 5 秒
+  Q.timerStarted = false;
+  const limit = Number(settings.time);
+  if(limit){
+    $('#leftNum').textContent = limit.toFixed(1);
+    $('#leftTag').textContent = '播放中…';
+    $('#ringBar').style.strokeDashoffset = 0;
+    $('#ring').classList.remove('warn','danger');
+  }
+  Q.t0 = Date.now();                       // 基准时刻（音频播完时会刷新为更准的计时起点）
+  playWord(beginTimer);                    // 音频完整播完 → 启动倒计时
+  Q.timerFallback = setTimeout(beginTimer, 6000); // 仅当所有音源都失效时，最后兜底启动计时，避免卡题（不会早于音频）
+}
+
+/* 音频完整播完时才启动本题倒计时（只触发一次） */
+function beginTimer(){
+  if(Q.timerStarted) return;
+  Q.timerStarted = true;
+  clearTimeout(Q.timerFallback);
+  Q.t0 = Date.now();                       // 计时起点 = 听到发音的时刻
+  startTimer();
+  if(Q.mode==='voice' && SR && !recording){ try{ startRec(); }catch(e){} } // 语音模式：自动开始聆听
+}
+
+function playWord(onStart){
+  if(Q.replayLeft <= 0) return;
+  Q.replayLeft--;
+  updateReplayNote();
+  $('#btnSpeak').disabled = Q.replayLeft<=0;
+  speak(Q.list[Q.i].en, null, onStart);
+}
+
+function updateReplayNote(){
+  const left = Q.replayLeft;
+  $('#replayNote').textContent = Number(settings.replay)===99
+    ? '可无限重播'
+    : (left>0 ? `还可重播 ${left} 次` : '重播次数已用完');
+}
+
+function startTimer(){
+  cancelAnimationFrame(Q.raf);
+  clearTimeout(Q.timerId);
+  const limit = Number(settings.time);
+  if(!limit){
+    $('#leftNum').textContent='∞'; $('#leftTag').textContent='不限时';
+    $('#ringBar').style.strokeDashoffset = 0;
+    $('#ring').classList.remove('warn','danger');
+    return;
+  }
+  Q.deadline = Date.now() + limit*1000;
+  const tick = ()=>{
+    if(Q.finish) return;
+    const left = Math.max(0, Q.deadline - Date.now());
+    const ratio = left/(limit*1000);
+    $('#leftNum').textContent = (left/1000).toFixed(1);
+    $('#ringBar').style.strokeDashoffset = CIRC*(1-ratio);
+    const ring = $('#ring');
+    ring.classList.toggle('warn', ratio<=0.5 && ratio>0.2);
+    ring.classList.toggle('danger', ratio<=0.2);
+    if(left<=0){ onTimeout(); return; }
+    Q.raf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+function onTimeout(){
+  stopTimer();
+  if(Q.locked) return;
+  submitAnswer('', true);
+}
+
+function stopTimer(){
+  cancelAnimationFrame(Q.raf);
+  clearTimeout(Q.timerId);
+}
+
+function submitAnswer(value, timeout){
+  if(Q.locked) return;
+  Q.locked = true;
+  stopTimer();
+  stopRec();
+  const w = Q.list[Q.i];
+  const used = ((Date.now()-Q.t0)/1000);
+  const input = value!=null ? value : $('#answerInput').value;
+  const th = Number(settings.strict);
+  const j = timeout ? {ok:false, score:0} : judge(input, w.zh, th);
+
+  if(j.ok) Q.ok++;
+  Q.records.push({
+    no: Q.i+1, en:w.en, zh:w.zh,
+    input: input.trim(), ok:j.ok, timeout:!!timeout,
+    used: Math.round(used*10)/10, score: Math.round(j.score*100)
+  });
+
+  $('#answerInput').disabled = true;
+  $('#btnSubmit').disabled = true;
+  $('#pillOk').textContent = '✓ '+Q.ok;
+  $('#pillBad').textContent = '✗ '+(Q.i+1-Q.ok);
+  $('#progBar').style.width = ((Q.i+1)/Q.total*100)+'%';
+
+  const fb = $('#feedback');
+  const showAns = (timeout && !settings.showTimeout) ? false : true;
+  if(j.ok){
+    fb.className = 'feedback on good';
+    fb.innerHTML = `<div class="verdict">✓ 正确</div>
+      <div class="detail"><em>${esc(w.en)}</em> · <span class="zh">${esc(w.zh)}</span> · 用时 ${used.toFixed(1)}s</div>`;
+  }else{
+    fb.className = 'feedback on wrong';
+    fb.innerHTML = `<div class="verdict">${timeout?'⏱ 超时':'✗ 不正确'}</div>
+      <div class="detail">
+        ${showAns?`<em>${esc(w.en)}</em> · <span class="zh" style="color:#16a34a">${esc(w.zh)}</span>`:'答案已隐藏'}
+        ${timeout?'':`<br>你的答案：<b>${esc(input.trim()||'（空）')}</b>`}
+        ${timeout?'':`<span class="tiny"> · 匹配度 ${Math.round(j.score*100)}%</span>`}
+      </div>`;
+  }
+
+  const advance = ()=>{ Q.i++; if(Q.i>=Q.total) finishQuiz(); else nextQuestion(); };
+  if(settings.autoNext){
+    Q.timerId = setTimeout(advance, j.ok ? 1200 : 2600);
+  }else{
+    $('#btnNext').style.display='';
+    $('#btnNext').onclick = advance;
+  }
+}
+
+function finishQuiz(){
+  Q.finish = true;
+  stopTimer();
+  stopCurrentAudio();
+  const total = Q.total;
+  const used = Q.records.reduce((s,r)=>s+r.used,0);
+  const okRecs = Q.records.filter(r=>r.ok);
+  const elapsed = Math.round((Date.now()-(Q.startAt||Q.t0))/1000);
+  const rec = {
+    id:uid(), ts:Date.now(), bank:Q.bank,
+    total, ok:Q.ok, rate: total? Math.round(Q.ok/total*100):0,
+    avg: okRecs.length? Math.round(okRecs.reduce((s,r)=>s+r.used,0)/okRecs.length*10)/10 : 0,
+    elapsed,
+    time: Number(settings.time),
+    records: Q.records
+  };
+  history.unshift(rec);
+  if(history.length>50) history = history.slice(0,50);
+  save(LS_HIS, history);
+
+  $('#quizStage').classList.remove('on');
+  $('#quizSetup').style.display='';
+  renderHistory();
+  showResult(rec);
+}
+
+$('#btnStart').onclick = startQuiz;
+$('#btnSpeak').onclick = ()=>{ if(!Q.locked && Q.replayLeft>0) playWord(); };
+$('#btnSubmit').onclick = ()=> submitAnswer();
+$('#answerInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); submitAnswer(); }
+});
+$('#btnQuit').onclick = ()=>{
+  if(!confirm('确定结束本轮测试？已答题目不会计入成绩。')) return;
+  Q.finish = true; stopTimer(); stopRec(); stopCurrentAudio();
+  $('#quizStage').classList.remove('on');
+  $('#quizSetup').style.display='';
+};
+document.addEventListener('keydown', e=>{
+  if(!$('#quizStage').classList.contains('on')) return;
+  if(document.activeElement === $('#answerInput')) return;
+  if(e.code==='Space' || e.key.toLowerCase()==='r'){
+    e.preventDefault();
+    if(!Q.locked && Q.replayLeft>0) playWord();
+  }
+});
+
+/* ---------- 结果 ---------- */
+function showResult(rec){
+  const wrong = rec.records.filter(r=>!r.ok);
+  const maxUsed = Math.max(...rec.records.map(r=>r.used), 1);
+  const rows = rec.records.map(r=>{
+    const color = r.timeout ? '#d97706' : r.ok ? '#16a34a' : '#e11d48';
+    const pct = Math.min(100, r.used/maxUsed*100);
+    return `<div class="bar-row">
+      <span class="lb" title="${esc(r.en)}">${r.no}. ${esc(r.en)}</span>
+      <span class="tr"><i style="width:${pct}%;background:${color}"></i></span>
+      <span class="vl">${r.used}s</span>
+    </div>`;
+  }).join('');
+
+  const el = document.createElement('div');
+  el.className = 'card pad';
+  el.style.marginTop = '16px';
+  el.innerHTML = `
+    <div class="row" style="justify-content:space-between;margin-bottom:14px">
+      <h2 class="sec" style="margin:0">本轮结果 · ${esc(rec.bank)}</h2>
+      <div class="row">
+        <button class="btn sm" id="rsExport">导出明细 CSV</button>
+        <button class="btn sm" id="rsWrongBank">把 ${wrong.length} 个错词存入「裸筛错词」</button>
+        <button class="btn sm ghost" id="rsClose">关闭</button>
+      </div>
+    </div>
+    <div class="kpis">
+      <div class="kpi p"><b>${rec.rate}%</b><span>正确率</span></div>
+      <div class="kpi g"><b>${rec.ok}</b><span>答对</span></div>
+      <div class="kpi r"><b>${rec.total-rec.ok}</b><span>答错/超时</span></div>
+      <div class="kpi"><b>${rec.avg}s</b><span>平均反应</span></div>
+    </div>
+    <div style="margin-top:18px"><h2 class="sec">逐题用时（绿=对 / 红=错 / 橙=超时）</h2>${rows}</div>
+    ${wrong.length?`<div style="margin-top:18px"><h2 class="sec">错题清单</h2>
+      <div class="wordtable" style="max-height:220px"><table>
+        <thead><tr><th style="width:44px">#</th><th style="width:30%">英文</th><th>正确释义</th><th style="width:34%">你的答案</th></tr></thead>
+        <tbody>${wrong.map(r=>`<tr><td>${r.no}</td><td><b>${esc(r.en)}</b></td>
+          <td style="color:#16a34a">${esc(r.zh)}</td>
+          <td>${r.timeout?'<span style="color:#d97706">超时未答</span>':esc(r.input||'（空）')}</td></tr>`).join('')}</tbody>
+      </table></div></div>`:''}
+  `;
+  $('#quizSetup').parentNode.insertBefore(el, $('#quizSetup'));
+  $('#rsExport').onclick = ()=> exportRecords(rec);
+  $('#rsWrongBank').onclick = ()=>{
+    let b = banks.find(x=>x.name==='裸筛错词');
+    if(!b){ b = {id:uid(), name:'裸筛错词', words:[]}; banks.push(b); }
+    const have = new Set(b.words.map(w=>norm(w.en)));
+    let add = 0;
+    wrong.forEach(r=>{ if(!have.has(norm(r.en))){ b.words.push({en:r.en, zh:r.zh}); add++; } });
+    saveBanks(); renderBanks(); toast(`已存入 ${add} 个错词`);
+  };
+  $('#rsClose').onclick = ()=> el.remove();
+  el.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function exportRecords(rec){
+  const head = ['题号','英文','正确释义','学生答案','用时(秒)','结果'];
+  const lines = rec.records.map(r=>[r.no, r.en, r.zh, r.timeout?'超时未答':r.input, r.used, r.ok?'正确':'错误']
+    .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
+  lines.unshift(head.join(','));
+  lines.push('');
+  lines.push([`"正确率"`,`"${rec.rate}%"`].join(','));
+  lines.push([`"平均反应"`,`"${rec.avg}s"`].join(','));
+  download(`单词速答_${rec.bank}_${fmtD(rec.ts).replace(/[: ]/g,'-')}.csv`, lines.join('\n'));
+}
+function download(name, text){
+  // 文件名不带 BOM，BOM 加在内容头部，保证 Excel 打开中文不乱码
+  const blob = new Blob(['\ufeff' + text], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+/* ---------- 历史 ---------- */
+function renderHistory(){
+  if(!history.length){
+    $('#hisList').innerHTML = `<div class="card empty"><div class="ico">📊</div>还没有测试记录，完成一轮测试后会出现在这里</div>`;
+    return;
+  }
+  $('#hisList').innerHTML = history.map(h=>`
+    <div class="card pad" style="margin-bottom:12px">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <b>${esc(h.bank)}</b>
+          <span class="tiny" style="margin-left:10px">${fmtD(h.ts)} · 限时 ${h.time?h.time+'s':'不限'} · 用时 ${Math.round(h.elapsed/60)||'<1'} 分钟</span>
+        </div>
+        <div class="row">
+          <span class="stat-pill ${h.rate>=80?'ok':''}">正确率 ${h.rate}%</span>
+          <span class="tiny">${h.ok}/${h.total} · 平均 ${h.avg}s</span>
+          <button class="btn sm" data-exp="${h.id}">明细</button>
+          <button class="btn sm" data-dl="${h.id}">导出</button>
+          <button class="btn sm ghost" data-delm="${h.id}">删除</button>
+        </div>
+      </div>
+      <div class="prog" style="margin-top:10px"><i style="width:${h.rate}%;background:${h.rate>=80?'#16a34a':h.rate>=60?'#d97706':'#e11d48'}"></i></div>
+    </div>`).join('');
+}
+$('#hisList').addEventListener('click', e=>{
+  const dl = e.target.dataset.dl, del = e.target.dataset.delm, exp = e.target.dataset.exp;
+  if(dl){ const h=history.find(x=>x.id===dl); if(h) exportRecords(h); }
+  if(del){ if(!confirm('删除这条记录？')) return; history=history.filter(x=>x.id!==del); save(LS_HIS,history); renderHistory(); }
+  if(exp){
+    const h = history.find(x=>x.id===exp); if(!h) return;
+    const card = e.target.closest('.card');
+    if(card.querySelector('.detail-tb')){ card.querySelector('.detail-tb').remove(); return; }
+    const div = document.createElement('div');
+    div.className='detail-tb';
+    div.style.marginTop='12px';
+    div.innerHTML = `<div class="wordtable" style="max-height:280px"><table>
+      <thead><tr><th style="width:44px">#</th><th style="width:26%">英文</th><th>正确释义</th><th style="width:26%">学生答案</th><th style="width:70px">用时</th><th style="width:60px">结果</th></tr></thead>
+      <tbody>${h.records.map(r=>`<tr><td>${r.no}</td><td><b>${esc(r.en)}</b></td><td style="color:#16a34a">${esc(r.zh)}</td>
+        <td>${r.timeout?'<span style="color:#d97706">超时未答</span>':esc(r.input||'（空）')}</td>
+        <td>${r.used}s</td>
+        <td style="color:${r.ok?'#16a34a':'#e11d48'};font-weight:600">${r.ok?'✓':'✗'}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+    card.appendChild(div);
+  }
+});
+$('#btnExportHis').onclick = ()=>{
+  if(!history.length){ toast('暂无记录'); return; }
+  const lines = [['时间','词书','总题','答对','正确率','平均反应(秒)','限时'].join(',')];
+  history.forEach(h=>lines.push([fmtD(h.ts),h.bank,h.total,h.ok,h.rate+'%',h.avg,h.time?h.time+'s':'不限']
+    .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')));
+  download('单词速答_成绩汇总.csv', lines.join('\n'));
+};
+$('#btnClearHis').onclick = ()=>{
+  if(!confirm('确定清空全部历史记录？')) return;
+  history=[]; save(LS_HIS,history); renderHistory();
+};
+
+/* ---------- Tab ---------- */
+$$('.tab').forEach(t=>t.addEventListener('click', ()=>{
+  $$('.tab').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on');
+  ['bank','quiz','history'].forEach(p=>$('#page-'+p).classList.toggle('on', p===t.dataset.page));
+  if(t.dataset.page==='history') renderHistory();
+  window.scrollTo({top:0});
+}));
+
+/* ---------- 启动 ---------- */
+renderBanks();
+bindSettings();
+renderVoiceInfo();
+renderHistory();
+</script>
+</body>
+</html>
