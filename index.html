@@ -212,6 +212,9 @@ footer code{color:var(--gold2)}
 .exam label{font-size:13px;margin-top:14px}
 .spell-input{font-family:Georgia,serif;font-size:48px;letter-spacing:4px;text-align:center;padding:18px 14px;font-weight:700}
 .nav-btns{display:flex;gap:12px;margin-top:20px;justify-content:space-between}
+.enter-tip{font-size:12px;color:var(--text2);margin:12px 0 2px;text-align:center;opacity:.85}
+.exam-tip{margin-top:12px;text-align:center;font-size:12.5px;color:var(--text2);opacity:.85}
+.exam-tip b{color:var(--gold2);background:rgba(212,175,55,.12);border-radius:5px;padding:1px 7px;font-family:Georgia,serif}
 
 /* ---- 结果 ---- */
 .wrong-table td{font-size:12.5px}
@@ -437,6 +440,7 @@ footer code{color:var(--gold2)}
     <label id="lblOther" for="inOther">✏️ 其余词性 + 对应中文释义（多个用回车 / 逗号 / 分号分隔） <span class="ime-tag">中文</span></label>
     <textarea id="inOther" rows="3" lang="zh-CN" inputmode="text" placeholder="示例：&#10;n. 放纵&#10;adj. 疯狂的"></textarea>
     <div id="fbArea" class="fb hidden"></div>
+    <div id="enterTip" class="enter-tip"></div>
     <div class="nav-btns">
       <button class="btn ghost danger" id="directSubmitBtn">📮 直接交卷</button>
       <button class="btn" id="nextBtn">下一题 →</button>
@@ -947,6 +951,10 @@ function renderQuestion(){
   $('nextBtn').style.display = session.idx===n-1 ? 'none' : '';
   $('submitBtn').style.display = session.idx===n-1 ? '' : 'none';
   hideFeedback();
+  // 回车跳题提示：按当前模式显示对应文案
+  $('enterTip').textContent = otherInputVisible()
+    ? '⌨️ 拼写框按 Enter 移到释义框 · 释义框内 Ctrl/Cmd + Enter 进入下一题'
+    : '⌨️ 按 Enter 直接进入下一题';
   $('inSpell').focus();
   startTimer();
 }
@@ -971,6 +979,7 @@ function showFeedback(g, q){
       <div class="fb-senses">词性释义：${senses}</div>`;
   }
   fb.classList.remove('hidden');
+  $('enterTip').textContent = '⌨️ 按 Enter 继续进入下一题';
 }
 function hideFeedback(){
   $('fbArea').classList.add('hidden');
