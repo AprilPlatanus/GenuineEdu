@@ -499,6 +499,17 @@ function splitMeanings(meaning){
   return String(meaning||'').split(MEANING_SPLIT).map(s=>s.trim()).filter(Boolean);
 }
 
+// 清洗释义：删除「词性和中文释义部分」中除词性之外的所有英文内容（释义里混入的单词/重复单词/英文注释等）
+// 仅保留中文释义与标点；顺带清理删空的中英文括号与连续分隔符
+function stripEnFromMeaning(m){
+  return String(m||'')
+    .replace(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g, '') // 删除英文单词串（含 ' 与 - 连接的复合词）
+    .replace(/[（(]\s*[)）]/g, '')                  // 清理删除后变空的括号
+    .replace(/[，、；,]\s*[，、；,]+/g, s => s[0])   // 压缩连续分隔符
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function parseWordLine(line){
   line = String(line||'').trim();
   if (!line) return null;
@@ -512,9 +523,11 @@ function parseWordLine(line){
   let current = null;
   const flush = () => {
     if (current){
-      const parts = splitMeanings(current.meaning);
+      // 清洗：删除词性之外的所有英文内容（释义里混入的单词/重复单词/英文注释）
+      const clean = stripEnFromMeaning(current.meaning);
+      const parts = splitMeanings(clean);
       if (parts.length) for (const m of parts) entry.senses.push({pos: current.pos, meaning: m});
-      else entry.senses.push({pos: current.pos, meaning: current.meaning});
+      else entry.senses.push({pos: current.pos, meaning: clean});
     }
     current = null;
   };
