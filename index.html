@@ -1352,15 +1352,22 @@ function toHalfWidth(s){
 })();
 
 /* ---------- 键盘 ---------- */
+// 回车 = 点击「下一题 →」等价行为：学生按 Enter 直接跳转下一题
+// - 仅拼写 / 全部显示模式（无释义输入框）：回车直接下一题
+// - 普通模式（有释义输入框）：回车先把焦点移到释义框；释义框内 Ctrl/Cmd+Enter 跳题，
+//   普通回车在释义框内仍用于换行分隔多个释义，故不抢占
+// - 已显示对错反馈时（fbPending）：回车直接「继续」进入下一题
+function otherInputVisible(){ return $('inOther').offsetParent !== null; }
 $('inSpell').addEventListener('keydown', e=>{
   if (e.key==='Enter'){
     e.preventDefault();
-    if (session && session.showAll) $('nextBtn').click(); // 全部显示模式无释义输入，回车直接下一题
-    else $('inOther').focus();
+    if (fbPending){ $('nextBtn').click(); return; }      // 反馈中：回车即「继续」
+    if (otherInputVisible()) $('inOther').focus();        // 普通模式：先进释义框
+    else $('nextBtn').click();                             // 仅拼写/全部显示：直接下一题
   }
 });
 $('inOther').addEventListener('keydown', e=>{
-  if (e.key==='Enter' && (e.metaKey||e.ctrlKey)) $('nextBtn').click();
+  if (e.key==='Enter' && (e.metaKey||e.ctrlKey)){ e.preventDefault(); $('nextBtn').click(); }
 });
 
 /* ---------- 初始化 ---------- */
