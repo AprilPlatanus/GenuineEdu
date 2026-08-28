@@ -1048,6 +1048,10 @@ let grading = null; // 批改结果
 function esc(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// 用于内联 onclick="fn('...')" 的 JS 字符串转义：只处理 \ 与 ' ，避免学生名含单引号时脚本破串
+function escJs(s){
+  return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+}
 
 /* ---------- 主题（色系 + 深浅） ---------- */
 function applyThemeBtn(){
@@ -1624,8 +1628,9 @@ function renderWrongBook(){
         <b class="gold-text">${esc(st)}</b>
         <div class="form-row">
           <span class="muted" style="font-size:12px">累计错词 ${allWrong.length} 个 · ${groups.length} 次测试</span>
-          <button class="btn ghost sm" onclick="exportWrongCSV('${esc(st)}')">⬇️ 导出错词 CSV</button>
-          <button class="btn danger sm" onclick="delStudentRecords('${esc(st)}')">清除该学生记录</button>
+          <button class="btn sm" onclick="importWrongToLib('${escJs(st)}')">📥 全部错词导入词库</button>
+          <button class="btn ghost sm" onclick="exportWrongCSV('${escJs(st)}')">⬇️ 导出错词 CSV</button>
+          <button class="btn danger sm" onclick="delStudentRecords('${escJs(st)}')">清除该学生记录</button>
         </div>
       </div>`;
     // 按测试时间分开显示：每次测试独立一个区块与错词表（时间从新到旧）
@@ -1635,7 +1640,10 @@ function renderWrongBook(){
       const recIdx = records.indexOf(g.rec);
       html += `<div style="margin:14px 0 6px;font-size:13px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
         <span><b>🕐 ${ds}</b> <span class="muted">（本次错词 ${g.wrong.length} 个 · 共 ${g.rec.items.length} 词）</span></span>
-        <button class="btn ghost sm" onclick="exportWrongCSVOnce(${recIdx})">⬇️ 导出本次错词 CSV</button>
+        <span class="form-row">
+          <button class="btn sm" onclick="importWrongToLib('${escJs(st)}', ${recIdx})">📥 导入本次错词到词库</button>
+          <button class="btn ghost sm" onclick="exportWrongCSVOnce(${recIdx})">⬇️ 导出本次错词 CSV</button>
+        </span>
       </div>
       <table class="wrong-table"><tr><th>单词</th><th>词性释义（完整）</th><th>拼写</th><th>错误详情</th></tr>`;
       g.wrong.forEach(w=>{
@@ -1661,6 +1669,40 @@ function delStudentRecords(st){
   records = records.filter(r=>r.student!==st);
   localStorage.setItem(LS.recs, JSON.stringify(records));
   renderResult(); renderStudentList();
+}
+
+/* ---------- 错词一键导入词库（用于错词二次测试） ---------- */
+// 收集错词条目：recIdx 为指定某次测试，省略则取该学生全部错词；自动按单词去重
+function collectWrongEntries(st, recIdx){
+  const out = [], seen = new Set();
+  records.forEach((r,i)=>{
+    if (r.student !== st) return;
+    if (recIdx !== undefined && recIdx !== null && i !== recIdx) return;
+    (r.items||[]).filter(it=>it.wrong).forEach(it=>{
+      const k = String(it.word||'').toLowerCase();
+      if (!k || seen.has(k)) return;
+      const senses = fullSenses(it).map(s=>({pos:s.pos||'', meaning:s.meaning||''})).filter(s=>s.meaning || s.pos);
+      out.push({word: it.word, senses: senses.length ? senses : [{pos:'', meaning:''}]});
+      seen.add(k);
+    });
+  });
+  return out;
+}
+function importWrongToLib(st, recIdx){
+  const entries = collectWrongEntries(st, recIdx);
+  if (!entries.length){ alert('该范围内没有错词可导入。'); return; }
+  const d = (recIdx !== undefined && recIdx !== null && records[recIdx]) ? new Date(records[recIdx].date) : new Date();
+  const datePart = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  let name = `错词库_${st}_${datePart}`, n = 2;
+  while (libraries.some(l=>l.name===name)) name = `错词库_${st}_${datePart}(${n++})`;
+  const lib = {id: Date.now().toString(36)+Math.random().toString(36).slice(2,6), name, entries, createdAt: Date.now(), count: entries.length};
+  libraries.push(lib);
+  localStorage.setItem(LS.libs, JSON.stringify(libraries));
+  renderLibList(); renderLibSelect();
+  if ($('selLib')) $('selLib').value = String(libraries.length-1); // 自动选中新词库
+  const scope = (recIdx !== undefined && recIdx !== null) ? '本次测试的' : '该学生全部';
+  alert(`✅ 已将${scope}错词 ${entries.length} 个导入新词库「${name}」\n\n已自动选中该词库，确认学生姓名后即可开始错词二次测试（可自由设置抽词数、限时、扩展词等）。`);
+  switchTab('test');
 }
 
 /* ---------- CSV 导出 ---------- */
