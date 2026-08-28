@@ -1014,8 +1014,9 @@ function hideFeedback(){
   $('submitBtn').textContent = '✅ 交卷';
 }
 $('nextBtn').onclick = () => {
-  if (fbPending){ // 点「继续」→ 进入下一题
+  if (fbPending){ // 反馈后：非最后一题 → 下一题；最后一题 → 直接查看成绩（修复回车无法提交）
     fbPending = false;
+    if (session.idx === session.questions.length-1){ finishExam(true); return; }
     session.idx++;
     renderQuestion();
     return;
@@ -1039,6 +1040,7 @@ $('nextBtn').onclick = () => {
     $('nextBtn').style.display = 'none';
     $('submitBtn').style.display = '';
     $('submitBtn').textContent = '✅ 查看成绩';
+    $('enterTip').textContent = '⌨️ 按 Enter 查看成绩';
   } else {
     $('nextBtn').textContent = '继续 ▶';
   }
