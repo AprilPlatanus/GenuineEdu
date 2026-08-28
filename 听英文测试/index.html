@@ -920,9 +920,13 @@ function renderVoiceInfo(){
   if(s==='edge'){
     const g = settings.accent==='GB' ? '（英式）' : settings.accent==='AU' ? '（澳式）' : '（美式）';
     const custom = (settings.ttsBase||'').trim();
-    $('#voiceInfo').innerHTML = custom
-      ? `发音源：<b>Edge 神经语音（自定义代理）</b>${g} · 走你填写的 TTS 代理地址，保真优先。`
-      : `发音源：<b>Edge 神经语音（浏览器直连）</b>${g} · 由本机浏览器直连 Microsoft 合成，免服务器；若被拦截则自动降级系统语音。`;
+    if(custom){
+      $('#voiceInfo').innerHTML = `发音源：<b>Edge 神经语音（自定义代理）</b>${g} · 走你填写的 TTS 代理地址，保真优先。`;
+    }else if(isSafari()){
+      $('#voiceInfo').innerHTML = `发音源：<b>百度真人 → 系统语音</b>${g} · Safari 不支持直连 Edge，已自动改用稳定 HTTP 音源（音质略低于 Edge 但保证有声）。如需 Edge 级音质，可在「自定义 TTS 代理地址」填入你的代理。`;
+    }else{
+      $('#voiceInfo').innerHTML = `发音源：<b>Edge 神经语音（浏览器直连）</b>${g} · 由本机浏览器直连 Microsoft 合成，免服务器；若被拦截则自动降级系统语音。`;
+    }
   }else if(s==='auto'){
     $('#voiceInfo').innerHTML = `发音源：<b>自动</b>（Edge → 百度真人 → 系统，故障自动切换）`;
   }else if(s==='youdao'){
@@ -959,16 +963,24 @@ function sourceOk(name){ if(health[name]) health[name].fail=0; }
 function sourceFail(name){ const h=health[name]||(health[name]={fail:0}); h.fail++; }
 const SRC_NAME = {speakEdge:'Edge 神经语音', speakBaidu:'百度真人', speakYoudao:'有道真人', speakSystem:'系统语音', speakMinimax:'MiniMax', speakAzure:'Azure'};
 
+function isSafari(){
+  const ua = navigator.userAgent;
+  const isWebKit = /WebKit/.test(ua);
+  const isChromium = /Chrome|CriOS|Edg|OPR/.test(ua);
+  return (isWebKit && !isChromium) || /iP(hone|od|ad)/.test(ua);
+}
 function speak(text, cb, onStart){
+  // Safari/iOS 不支持浏览器直连 Edge 的 wss 握手，默认改走可靠的 HTTP 音源（百度真人 → 系统语音）
+  const safariNoProxy = isSafari() && !(settings.ttsBase||'').trim();
   let chain;
   switch(settings.source){
-    case 'edge':    chain = [speakEdge, speakBaidu, speakSystem]; break;
+    case 'edge':    chain = safariNoProxy ? [speakBaidu, speakSystem] : [speakEdge, speakBaidu, speakSystem]; break;
     case 'azure':   chain = [speakAzure]; break;
     case 'system':  chain = [speakSystem]; break;
     case 'minimax': chain = [speakMinimax, speakBaidu, speakSystem]; break;
     case 'baidu':   chain = [speakBaidu, speakSystem]; break;
     case 'youdao':  chain = [speakYoudao, speakBaidu, speakSystem]; break;
-    default:        chain = [speakEdge, speakBaidu, speakSystem]; // auto 推荐
+    default:        chain = safariNoProxy ? [speakBaidu, speakSystem] : [speakEdge, speakBaidu, speakSystem]; // auto 推荐
   }
   chain = chain.filter((fn,i,arr)=> sourceAlive(SRC_NAME[fn]) || (fn===arr[arr.length-1])); // 末位兜底不跳过
   let i=0, used=false, started=false;
@@ -1060,6 +1072,7 @@ function speakEdge(text, onDone, onStart){
     const url = `${base}/tts?text=${encodeURIComponent(text)}&accent=${encodeURIComponent(accent)}&gender=${encodeURIComponent(gender)}&rate=${encodeURIComponent(rate)}`;
     return playAudio(url, onStart, onDone);
   }
+  if(isSafari()) return speakBaidu(text, onDone, onStart); // Safari 直连 Edge 必失败，直接走可靠 HTTP 音源
   return speakEdgeBrowser(text, accent, gender, rate, onStart, onDone);
 }
 /* 浏览器直连 Microsoft Edge 语音接口（wss），由各学生设备本地合成，无需后端 */

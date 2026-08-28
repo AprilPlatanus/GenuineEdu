@@ -11,7 +11,13 @@
 - **本地存档**：错题、成绩保存在浏览器 localStorage，可导出。
 
 ## 使用
-直接用 Chrome / Edge 打开 `index.html` 即可。若某浏览器/网络拦截 Edge 直连，会自动降级为系统语音，题目照常可答。
+直接用 Chrome / Edge 打开 `index.html` 即可，获得 Edge 录音棚级发音。
+
+浏览器兼容说明：
+- **Chrome / Edge（桌面/安卓）**：默认浏览器直连 Edge 神经语音（最佳音质）。
+- **Safari / iOS（含 iOS 上的 Chrome）**：Safari 无法完成 Edge 的 `wss://` 握手，已自动改用「百度真人 → 系统语音」稳定 HTTP 音源，保证有声（音质略低于 Edge）。
+- 若任何浏览器/网络拦截 Edge 直连，会自动降级到备用音源，题目照常可答。
+- 想在所有浏览器都拿到 Edge 级音质？在设置里填写「自定义 TTS 代理地址」（把你本机 `server.py` 经隧道公开后的地址）。
 
 ## 部署
 本目录随 GenuineEdu 主站一同发布于 GitHub Pages：
