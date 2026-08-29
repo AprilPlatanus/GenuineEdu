@@ -345,12 +345,12 @@ tbody tr:hover{background:#fafbfd}
           <div class="field">
             <label>发音源（解决机读感）</label>
             <div class="seg" id="segSource">
-              <button data-s="edge" class="on">Edge 神经语音（仅 Edge 音质，需代理）</button>
+              <button data-s="edge" class="on">Edge 神经语音（腾讯云 SCF 代理，国内直连）</button>
             </div>
-            <div class="tiny" style="margin-top:6px">本工具<b>仅使用 Edge 神经语音</b>（与 Azure 同款录音棚级音色，美/英/澳口音、男/女声可选）。微软已限制外部网站浏览器直连，因此<b>必须配置服务端代理</b>：在下方填写代理地址，或直接使用带 <code>?tts=</code> 的分享链接。代理离线时本题将无声音（不会自动换用其他音色）。</div>
+            <div class="tiny" style="margin-top:6px">本工具<b>仅使用 Edge 神经语音</b>（与 Azure 同款录音棚级音色，美/英/澳口音、男/女声可选）。微软已限制外部网站浏览器直连，因此已内置<b>腾讯云 SCF 国内代理</b>，国内用户可直连使用。如需换用自己的代理，在下方填写即可；代理离线时本题将无声音（不会自动换用其他音色）。</div>
             <div class="field" style="margin-top:10px">
-              <label>自定义 TTS 代理地址（可选，留空则用浏览器直连 Edge）</label>
-              <input class="input" id="ttsBase" placeholder="例如 https://你的隧道地址（需运行本机 server.py）">
+              <label>自定义 TTS 代理地址（可选，留空使用内置腾讯云代理）</label>
+              <input class="input" id="ttsBase" placeholder="留空使用内置代理；或填写 https://你的代理地址/">
             </div>
           </div>
           <div class="field">
@@ -757,9 +757,11 @@ if(!banks){
   save(LS_BANKS, banks);
 }
 let history = load(LS_HIS, []);
+const DEFAULT_TTS_BASE = 'https://1477377570-g35yqm1gdv.ap-guangzhou.tencentscf.com';
 let settings = Object.assign({time:8,count:0,order:'rand',mode:'text',accent:'US',rate:0.9,replay:2,strict:0.8,autoNext:true,showTimeout:true,
   source:'edge', ttsBase:'', azureKey:'', azureRegion:'eastasia', azureVoice:'en-US-AriaNeural', azureGender:'female',
   mmKey:'', mmGroup:'', mmVoice:'English_expressive_narrator', mmModel:'speech-02-hd'}, load(LS_SET,{}));
+if(!settings.ttsBase) settings.ttsBase = DEFAULT_TTS_BASE;
 
 function load(k,d){ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } }
 function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ toast('本地存储写入失败'); } }
@@ -1055,19 +1057,46 @@ function speakBaidu(text, onDone, onStart){
 /* ---------- Edge 神经语音（仅通过服务端代理，保真） ---------- */
 function uuid(){ return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;const v=c==='x'?r:(r&0x3|0x8);return v.toString(16);}); }
 function rateToEdge(r){ r=Number(r)||1.0; if(r<0.95) return '-'+Math.round((1-r)*100)+'%'; if(r>1.05) return '+'+Math.round((r-1)*100)+'%'; return '+0%'; }
+function base64ToBytes(b64){
+  const bin = atob(b64.replace(/\s/g,''));
+  const len = bin.length;
+  const arr = new Uint8Array(len);
+  for(let i=0;i<len;i++) arr[i] = bin.charCodeAt(i);
+  return arr.buffer;
+}
 function speakEdge(text, onDone, onStart){
   const accent = settings.accent || 'US';
   const gender = settings.azureGender || 'female';
   const rate = settings.rate || 1.0;
   const base = (settings.ttsBase||'').trim().replace(/\/+$/,'');
-  if(!base){ // 未配置代理：提示后本题无音频（不降级）
+  if(!base){
     toast('Edge 音质需要代理地址：请在设置中填写「自定义 TTS 代理地址」，或使用带 ?tts= 的分享链接');
     return onDone(false);
   }
   const url = `${base}/tts?text=${encodeURIComponent(text)}&accent=${encodeURIComponent(accent)}&gender=${encodeURIComponent(gender)}&rate=${encodeURIComponent(rate)}`;
-  return playAudio(url, onStart, ok=>{
-    if(!ok) toast('Edge 代理不可用（可能离线或地址错误），本题无音频');
-    onDone(ok);
+  // 部分云端代理（如腾讯云 SCF 函数 URL）返回 base64 文本，需解码为 MP3 blob 播放
+  fetch(url, {cache:'force-cache'}).then(async r=>{
+    if(!r.ok) throw new Error('http '+r.status);
+    const ct = (r.headers.get('content-type')||'').toLowerCase();
+    const txt = await r.text();
+    // 若返回的是 base64 字符串（SCF 函数 URL 行为），解码；否则当作普通 URL 兜底
+    if(txt.length > 100 && /^[A-Za-z0-9+/=\s]+$/.test(txt.trim()) && txt.length % 4 === 0){
+      const buf = base64ToBytes(txt.trim());
+      const blob = new Blob([buf], {type:'audio/mpeg'});
+      playAudio(URL.createObjectURL(blob), onStart, ok=>{
+        if(!ok) toast('Edge 代理音频播放失败，本题无音频');
+        onDone(ok);
+      });
+    }else{
+      // 普通二进制代理：回退到直接 URL 播放
+      playAudio(url, onStart, ok=>{
+        if(!ok) toast('Edge 代理不可用（可能离线或地址错误），本题无音频');
+        onDone(ok);
+      });
+    }
+  }).catch(e=>{
+    toast('Edge 代理请求失败：' + (e.message||'网络错误'));
+    onDone(false);
   });
 }
 /* 浏览器直连 Microsoft Edge 语音接口（wss），由各学生设备本地合成，无需后端 */
@@ -1409,7 +1438,9 @@ function unlockAudio(){
 /* 后台预热：把前面若干词的音频先让服务器合成并缓存，正式播放时即点即响 */
 function prewarm(){
   const accent = settings.accent||'US', gender = settings.azureGender||'female', rate = settings.rate||1.0;
-  const base = `/tts?accent=${encodeURIComponent(accent)}&gender=${encodeURIComponent(gender)}&rate=${encodeURIComponent(rate)}&text=`;
+  const proxy = (settings.ttsBase||'').trim().replace(/\/+$/,'');
+  if(!proxy) return;
+  const base = `${proxy}/tts?accent=${encodeURIComponent(accent)}&gender=${encodeURIComponent(gender)}&rate=${encodeURIComponent(rate)}&text=`;
   Q.list.slice(0, 12).forEach((w, idx)=>{
     setTimeout(()=>{ try{ fetch(base + encodeURIComponent(w.en), {cache:'force-cache'}).catch(()=>{}); }catch(e){} }, idx*120);
   });
