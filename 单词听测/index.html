@@ -306,7 +306,7 @@ tbody tr:hover{background:#fafbfe}
               <button data-m="text" class="on">打字输入</button>
               <button data-m="voice">语音输入</button>
             </div>
-            <div class="tiny" style="margin-top:6px">语音输入：发音结束后自动开始聆听，识别到答案自动提交。需 Chrome / Edge 浏览器并允许麦克风。</div>
+            <div class="tiny" style="margin-top:6px">语音输入：发音结束后自动开始聆听，识别到答案自动提交（识别不顺时也可随时打字按 Enter）。需 Chrome / Edge 并允许麦克风；蓝牙耳机偶尔切不过来，多试几次或改打字即可。</div>
           </div>
           <div class="row" style="gap:18px">
             <label class="chk"><input type="checkbox" id="chkAutoNext" checked> 自动进入下一题</label>
@@ -786,14 +786,17 @@ function startRec(){
   };
   rec.onerror=ev=>{
     recording=false; $('#btnMic').classList.remove('primary'); $('#hintLine').classList.remove('rec');
-    const msg = ev.error==='not-allowed' ? '麦克风权限被拒绝'
+    const msg = ev.error==='not-allowed' ? '麦克风权限被拒绝：请允许浏览器使用麦克风'
               : ev.error==='no-speech'   ? '没有听到声音'
+              : ev.error==='audio-capture'? '无法打开麦克风：请检查系统输入设备'
               : ev.error==='network'     ? '识别服务不可用，请改用打字输入'
               : '识别出错：'+ev.error;
     $('#hintLine').textContent=msg;
-    if(ev.error==='no-speech'&&!Q.locked&&!Q.finish&&(Q.recRestarts||0)<2){
+    if(['no-speech','audio-capture','aborted'].includes(ev.error)&&!Q.locked&&!Q.finish&&(Q.recRestarts||0)<4){
       Q.recRestarts=(Q.recRestarts||0)+1;
-      setTimeout(()=>{ if(!Q.locked&&!Q.finish&&!recording) startRec(); },700);
+      $('#hintLine').textContent=msg+'，正在重新聆听（'+Q.recRestarts+'/4）…';
+      if(Q.recRestarts===3) $('#hintLine').textContent='蓝牙耳机易识别失败：可在系统设置把输入设备选为耳机麦克风，或直接打字按 Enter';
+      setTimeout(()=>{ if(!Q.locked&&!Q.finish&&!recording) startRec(); },600);
     }
   };
   rec.onend=()=>{
@@ -805,6 +808,8 @@ function startRec(){
 }
 function stopRec(){ if(rec&&recording){ try{ rec.stop(); }catch(e){} } }
 $('#btnMic').onclick=startRec;
+/* 语音模式下学生改为手动打字时，停止自动聆听，避免识别结果覆盖输入 */
+$('#answerInput').addEventListener('input',()=>{ if(recording&&Q.mode==='voice') stopRec(); });
 
 /* ---------- 设置 ---------- */
 function bindSettings(){
@@ -883,11 +888,11 @@ function startQuiz(){
 }
 function applyMode(){
   if(Q.mode==='voice'){
-    $('#answerInput').placeholder='发音结束后自动开始聆听，说出释义即可';
-    $('#answerInput').disabled=true;
+    $('#answerInput').placeholder='自动聆听语音，也可直接打字后按 Enter';
+    $('#answerInput').disabled=false;
     $('#btnMic').style.display=''; $('#btnMic').classList.add('primary');
-    $('#btnSubmit').style.display='none';
-    $('#hintLine').textContent='说出释义，识别后自动提交';
+    $('#btnSubmit').style.display='';
+    $('#hintLine').textContent='说出释义自动提交 · 也可打字按 Enter · 空格重播';
   }else{
     $('#answerInput').placeholder='听到单词后，输入中文释义，按 Enter 提交';
     $('#answerInput').disabled=Q.locked;
@@ -927,7 +932,10 @@ function beginTimer(){
   if(Q.locked||Q.finish) return; /* 已提交/已结束后，迟到的音频不得再启动计时 */
   Q.timerStarted=true; clearTimeout(Q.timerFallback);
   Q.t0=Date.now(); startTimer();
-  if(Q.mode==='voice'&&SR&&!recording){ try{ startRec(); }catch(e){} }
+  if(Q.mode==='voice'&&SR&&!recording){
+    /* 稍作延迟再开麦：蓝牙耳机从放音切到录音需要时间，立即开麦常导致识别失败 */
+    setTimeout(()=>{ if(!Q.locked&&!Q.finish&&!recording){ try{ startRec(); }catch(e){} } },600);
+  }
 }
 function playWord(onStart){
   if(Q.replayLeft<=0) return;
