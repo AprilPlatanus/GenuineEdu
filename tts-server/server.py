@@ -91,6 +91,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
+        # 健康检查：云平台（Koyeb/Render）部署后用它判断服务是否就绪
+        if u.path in ('/', '/health', '/healthz'):
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(b'ok')
+            return
         if u.path == '/tts':
             p = urllib.parse.parse_qs(u.query)
             text = p.get('text', [''])[0]
