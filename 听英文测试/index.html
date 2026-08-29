@@ -1773,6 +1773,14 @@ $$('.tab').forEach(t=>t.addEventListener('click', ()=>{
 }));
 
 /* ---------- 启动 ---------- */
+/* 支持通过链接预填自定义 TTS 代理：?tts=<代理地址>
+   这样分享出去的链接自带 Edge 音质代理，对方无需手动粘贴。 */
+(function(){
+  try{
+    const u = new URLSearchParams(location.search).get('tts');
+    if(u) settings.ttsBase = String(u).trim().replace(/\/+$/,'');
+  }catch(e){}
+})();
 renderBanks();
 bindSettings();
 renderVoiceInfo();
