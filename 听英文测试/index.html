@@ -345,11 +345,11 @@ tbody tr:hover{background:#fafbfd}
           <div class="field">
             <label>发音源（解决机读感）</label>
             <div class="seg" id="segSource">
-              <button data-s="edge" class="on">Edge 神经语音（腾讯云 SCF 代理，国内直连）</button>
+              <button data-s="edge" class="on">Edge 神经语音（内置国内代理）</button>
             </div>
-            <div class="tiny" style="margin-top:6px">本工具<b>仅使用 Edge 神经语音</b>（与 Azure 同款录音棚级音色，美/英/澳口音、男/女声可选）。微软已限制外部网站浏览器直连，因此已内置<b>腾讯云 SCF 国内代理</b>，国内用户可直连使用。如需换用自己的代理，在下方填写即可；代理离线时本题将无声音（不会自动换用其他音色）。</div>
+            <div class="tiny" style="margin-top:6px">仅使用 <b>Edge 神经语音</b>（录音棚级音色，美/英/澳口音、男/女声可选）。已内置<b>腾讯云国内代理</b>，开箱即用；代理偶发故障时<b>自动切换浏览器直连</b>（同为 Edge 音质，不会换用其他音色）。</div>
             <div class="field" style="margin-top:10px">
-              <label>自定义 TTS 代理地址（可选，留空使用内置腾讯云代理）</label>
+              <label>TTS 代理地址（留空 = 内置腾讯云代理）</label>
               <input class="input" id="ttsBase" placeholder="留空使用内置代理；或填写 https://你的代理地址/">
             </div>
           </div>
@@ -920,8 +920,8 @@ function renderVoiceInfo(){
     const g = settings.accent==='GB' ? '（英式）' : settings.accent==='AU' ? '（澳式）' : '（美式）';
     const custom = (settings.ttsBase||'').trim();
     $('#voiceInfo').innerHTML = custom
-      ? `发音源：<b>Edge 神经语音（代理）</b>${g} · 仅 Edge 音质，无降级；代理离线时本题无音频。`
-      : `发音源：<b>Edge 神经语音</b>${g} · <span style="color:#d97706">未配置代理</span>：请在下方填写「自定义 TTS 代理地址」，或使用带 <code>?tts=</code> 的分享链接，否则无声音。`;
+      ? `发音源：<b>Edge 神经语音</b>${g} · 经代理合成，故障自动切浏览器直连（同为 Edge 音质）。`
+      : `发音源：<b>Edge 神经语音</b>${g} · <span style="color:#d97706">未配置代理</span>：请填写「TTS 代理地址」，或使用带 <code>?tts=</code> 的分享链接，否则无声音。`;
   }else if(s==='auto'){
     $('#voiceInfo').innerHTML = `发音源：<b>自动</b>（Edge → 百度真人 → 系统，故障自动切换）`;
   }else if(s==='youdao'){
@@ -956,7 +956,7 @@ const health = {};
 function sourceAlive(name){ const h=health[name]; return !h || h.fail<2; }
 function sourceOk(name){ if(health[name]) health[name].fail=0; }
 function sourceFail(name){ const h=health[name]||(health[name]={fail:0}); h.fail++; }
-const SRC_NAME = {speakEdge:'Edge 神经语音', speakBaidu:'百度真人', speakYoudao:'有道真人', speakSystem:'系统语音', speakMinimax:'MiniMax', speakAzure:'Azure'};
+const SRC_NAME = {speakEdge:'Edge 代理', speakEdgeDirect:'Edge 直连', speakBaidu:'百度真人', speakYoudao:'有道真人', speakSystem:'系统语音', speakMinimax:'MiniMax', speakAzure:'Azure'};
 
 function isSafari(){
   const ua = navigator.userAgent;
@@ -968,7 +968,7 @@ function speak(text, cb, onStart){
   // 仅 Edge 音质模式：不走任何降级链（不用百度/有道/系统音色）
   let chain;
   switch(settings.source){
-    case 'edge':    chain = [speakEdge]; break;                  // 严格 Edge：失败则本题无音频
+    case 'edge':    chain = [speakEdge, speakEdgeDirect]; break; // 代理失败 → 浏览器直连 Edge（同为 Edge 音质，不降级到其他音色）
     case 'azure':   chain = [speakAzure]; break;
     case 'system':  chain = [speakSystem]; break;
     case 'minimax': chain = [speakMinimax, speakBaidu, speakSystem]; break;
@@ -1064,40 +1064,52 @@ function base64ToBytes(b64){
   for(let i=0;i<len;i++) arr[i] = bin.charCodeAt(i);
   return arr.buffer;
 }
+/* 粗略嗅探常见音频魔数（MP3/ID3/Ogg/WAV），用于区分二进制音频与 base64 文本 */
+function looksLikeAudio(buf){
+  try{
+    const b = new Uint8Array(buf);
+    if(b.length < 4) return false;
+    if(b[0]===0x49 && b[1]===0x44 && b[2]===0x33) return true;                 // "ID3"
+    if(b[0]===0xFF && (b[1] & 0xE0)===0xE0) return true;                       // MPEG 帧同步
+    if(b[0]===0x4F && b[1]===0x67 && b[2]===0x67 && b[3]===0x53) return true;  // "OggS"
+    if(b[0]===0x52 && b[1]===0x49 && b[2]===0x46 && b[3]===0x46) return true;  // "RIFF"
+    return false;
+  }catch(e){ return false; }
+}
 function speakEdge(text, onDone, onStart){
   const accent = settings.accent || 'US';
   const gender = settings.azureGender || 'female';
   const rate = settings.rate || 1.0;
   const base = (settings.ttsBase||'').trim().replace(/\/+$/,'');
   if(!base){
-    toast('Edge 音质需要代理地址：请在设置中填写「自定义 TTS 代理地址」，或使用带 ?tts= 的分享链接');
+    toast('Edge 音质需要代理地址：请在设置中填写「TTS 代理地址」，或使用带 ?tts= 的分享链接');
     return onDone(false);
   }
   const url = `${base}/tts?text=${encodeURIComponent(text)}&accent=${encodeURIComponent(accent)}&gender=${encodeURIComponent(gender)}&rate=${encodeURIComponent(rate)}`;
-  // 部分云端代理（如腾讯云 SCF 函数 URL）返回 base64 文本，需解码为 MP3 blob 播放
+  /* Safari 修复：统一按二进制（arrayBuffer）读取，再按魔数分流——
+     新版代理直接返回 MP3 字节；旧版代理返回 base64 文本则在此解码兜底。
+     不再用 r.text() 读整包，避免 Safari 对"声明 audio/mpeg 实为文本"的响应直接拒收（Load failed）。 */
   function tryFetch(attempt){
     return fetch(url, {mode:'cors', credentials:'omit', cache:'default'}).then(async r=>{
       if(!r.ok) throw new Error('http '+r.status);
-      const txt = await r.text();
-      // 若返回的是 base64 字符串（SCF 函数 URL 行为），解码；否则当作普通 URL 兜底
-      if(txt.length > 100 && /^[A-Za-z0-9+/=\s]+$/.test(txt.trim()) && txt.length % 4 === 0){
-        const buf = base64ToBytes(txt.trim());
-        const blob = new Blob([buf], {type:'audio/mpeg'});
-        return new Promise((res)=>{
-          playAudio(URL.createObjectURL(blob), onStart, ok=>{
-            if(!ok) toast('Edge 代理音频播放失败，本题无音频');
-            res(ok);
-          });
-        });
+      const buf = await r.arrayBuffer();
+      let bytes;
+      if(looksLikeAudio(buf)){
+        bytes = buf;                                       // 新版代理：二进制 MP3
       }else{
-        // 普通二进制代理：回退到直接 URL 播放
-        return new Promise((res)=>{
-          playAudio(url, onStart, ok=>{
-            if(!ok) toast('Edge 代理不可用（可能离线或地址错误），本题无音频');
-            res(ok);
-          });
-        });
+        const txt = new TextDecoder().decode(buf).trim();  // 旧版代理：base64 文本
+        if(txt.length > 100 && /^[A-Za-z0-9+/=\s]+$/.test(txt) && txt.length % 4 === 0){
+          bytes = base64ToBytes(txt);
+        }else{
+          throw new Error('代理返回内容无法识别');
+        }
       }
+      return new Promise((res)=>{
+        playAudio(URL.createObjectURL(new Blob([bytes], {type:'audio/mpeg'})), onStart, ok=>{
+          if(!ok) toast('Edge 代理音频播放失败');
+          res(ok);
+        });
+      });
     }).catch(e=>{
       if(attempt < 2){
         return new Promise((res)=>setTimeout(()=>res(tryFetch(attempt+1)), 600));
@@ -1107,8 +1119,12 @@ function speakEdge(text, onDone, onStart){
   }
   tryFetch(0).then(ok=>onDone(ok)).catch(e=>{
     toast('Edge 代理请求失败：' + (e.message||'网络错误'));
-    onDone(false);
+    onDone(false);   // 由 speak() 链交给下一个音源（Edge 直连）
   });
+}
+/* Edge 直连（代理失败时的兜底）：浏览器直连微软 wss 接口，音色与代理版完全一致 */
+function speakEdgeDirect(text, onDone, onStart){
+  speakEdgeBrowser(text, settings.accent||'US', settings.azureGender||'female', settings.rate||1.0, onStart, onDone);
 }
 /* 浏览器直连 Microsoft Edge 语音接口（wss），由各学生设备本地合成，无需后端 */
 function speakEdgeBrowser(text, accent, gender, rate, onStart, onDone){
