@@ -1075,26 +1075,37 @@ function speakEdge(text, onDone, onStart){
   }
   const url = `${base}/tts?text=${encodeURIComponent(text)}&accent=${encodeURIComponent(accent)}&gender=${encodeURIComponent(gender)}&rate=${encodeURIComponent(rate)}`;
   // 部分云端代理（如腾讯云 SCF 函数 URL）返回 base64 文本，需解码为 MP3 blob 播放
-  fetch(url, {cache:'force-cache'}).then(async r=>{
-    if(!r.ok) throw new Error('http '+r.status);
-    const ct = (r.headers.get('content-type')||'').toLowerCase();
-    const txt = await r.text();
-    // 若返回的是 base64 字符串（SCF 函数 URL 行为），解码；否则当作普通 URL 兜底
-    if(txt.length > 100 && /^[A-Za-z0-9+/=\s]+$/.test(txt.trim()) && txt.length % 4 === 0){
-      const buf = base64ToBytes(txt.trim());
-      const blob = new Blob([buf], {type:'audio/mpeg'});
-      playAudio(URL.createObjectURL(blob), onStart, ok=>{
-        if(!ok) toast('Edge 代理音频播放失败，本题无音频');
-        onDone(ok);
-      });
-    }else{
-      // 普通二进制代理：回退到直接 URL 播放
-      playAudio(url, onStart, ok=>{
-        if(!ok) toast('Edge 代理不可用（可能离线或地址错误），本题无音频');
-        onDone(ok);
-      });
-    }
-  }).catch(e=>{
+  function tryFetch(attempt){
+    return fetch(url, {mode:'cors', credentials:'omit', cache:'default'}).then(async r=>{
+      if(!r.ok) throw new Error('http '+r.status);
+      const txt = await r.text();
+      // 若返回的是 base64 字符串（SCF 函数 URL 行为），解码；否则当作普通 URL 兜底
+      if(txt.length > 100 && /^[A-Za-z0-9+/=\s]+$/.test(txt.trim()) && txt.length % 4 === 0){
+        const buf = base64ToBytes(txt.trim());
+        const blob = new Blob([buf], {type:'audio/mpeg'});
+        return new Promise((res)=>{
+          playAudio(URL.createObjectURL(blob), onStart, ok=>{
+            if(!ok) toast('Edge 代理音频播放失败，本题无音频');
+            res(ok);
+          });
+        });
+      }else{
+        // 普通二进制代理：回退到直接 URL 播放
+        return new Promise((res)=>{
+          playAudio(url, onStart, ok=>{
+            if(!ok) toast('Edge 代理不可用（可能离线或地址错误），本题无音频');
+            res(ok);
+          });
+        });
+      }
+    }).catch(e=>{
+      if(attempt < 2){
+        return new Promise((res)=>setTimeout(()=>res(tryFetch(attempt+1)), 600));
+      }
+      throw e;
+    });
+  }
+  tryFetch(0).then(ok=>onDone(ok)).catch(e=>{
     toast('Edge 代理请求失败：' + (e.message||'网络错误'));
     onDone(false);
   });
