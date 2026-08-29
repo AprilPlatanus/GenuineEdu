@@ -430,6 +430,31 @@ tbody tr:hover{background:#fafbfe}
 
 <div class="toast" id="toast"></div>
 
+<!-- 浏览器检测提醒（非 Edge/Chrome 时展示） -->
+<div id="browserTip" style="display:none;position:fixed;inset:0;background:rgba(30,41,59,.5);z-index:120;align-items:center;justify-content:center;padding:18px">
+  <div class="card" style="max-width:460px;width:100%;text-align:left">
+    <div class="row" style="gap:12px;margin-bottom:8px">
+      <div style="width:38px;height:38px;border-radius:50%;background:#fef3c7;color:#92400e;font-weight:800;font-size:22px;display:flex;align-items:center;justify-content:center;flex:none">!</div>
+      <div>
+        <div style="font-size:18px;font-weight:800">建议更换浏览器以获得完整功能</div>
+        <div class="tiny" style="margin-top:2px">检测到当前浏览器：<b id="brName" style="color:var(--bad)">未知浏览器</b></div>
+      </div>
+    </div>
+    <div class="tiny" style="line-height:1.8">
+      · 本页的<b>语音答题</b>仅支持 Edge 与 Chrome，当前浏览器无法使用；<b>打字输入不受影响</b>。<br>
+      · 国内网络语音答题<b>推荐用 Microsoft Edge</b>（Chrome 的语音识别需连接谷歌服务器，国内无法使用）。<br>
+      · 复制下方网址，粘贴到 Edge 浏览器打开即可。
+    </div>
+    <div class="row" style="gap:8px;margin-top:12px">
+      <input id="brUrl" readonly style="flex:1;font-size:12px;color:var(--ink2)" onclick="this.select()">
+      <button class="btn sm primary" id="btnBrCopy">复制网址</button>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:12px">
+      <button class="btn sm" id="btnBrGo">仍要继续使用（仅打字模式）</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* =====================================================
    单词听测 · 听音答义
@@ -450,6 +475,46 @@ function fmtD(ts){ const d=new Date(ts), p=n=>String(n).padStart(2,'0');
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
 function load(k,d){ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } }
 function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ toast('本地存储写入失败'); } }
+
+/* ---------- 浏览器检测提醒 ---------- */
+function detectBrowser(){
+  const ua=navigator.userAgent;
+  if(/Edg(e|A|iOS)?\//.test(ua)) return /iPhone|iPad/.test(ua)?{ok:false,name:'Edge for iOS（不支持语音识别）'}:{ok:true,name:'Microsoft Edge'};
+  if(/MicroMessenger/i.test(ua)) return {ok:false,name:'微信内置浏览器'};
+  if(/MQQBrowser/i.test(ua))     return {ok:false,name:'QQ 浏览器'};
+  if(/UCBrowser/i.test(ua))      return {ok:false,name:'UC 浏览器'};
+  if(/baiduboxapp|baidubrowser/i.test(ua)) return {ok:false,name:'百度浏览器/APP 内置浏览器'};
+  if(/Quark/i.test(ua))          return {ok:false,name:'夸克浏览器'};
+  if(/MiuiBrowser|XiaoMi/i.test(ua)) return {ok:false,name:'小米浏览器'};
+  if(/HuaweiBrowser|HMSCore|HBPC/i.test(ua)) return {ok:false,name:'华为浏览器'};
+  if(/HeyTapBrowser/i.test(ua))  return {ok:false,name:'OPPO 浏览器'};
+  if(/VivoBrowser/i.test(ua))    return {ok:false,name:'vivo 浏览器'};
+  if(/Firefox\//.test(ua))       return {ok:false,name:'Firefox'};
+  if(/CriOS\//.test(ua))         return {ok:false,name:'Chrome for iOS（不支持语音识别）'};
+  if(/Safari\//.test(ua)&&/Version\//.test(ua)) return {ok:false,name:'Safari'};
+  if(/Chrome\//.test(ua))        return {ok:true,name:'Chrome'};
+  return {ok:false,name:'当前浏览器'};
+}
+function browserTipShow(){
+  const br=detectBrowser();
+  if(br.ok) return; /* Edge / Chrome 不提醒 */
+  let remembered=false; try{ remembered=!!localStorage.getItem('bTipOk'); }catch(e){}
+  if(remembered) return;
+  $('#brName').textContent=br.name;
+  $('#brUrl').value=location.href;
+  $('#browserTip').style.display='flex';
+}
+$('#btnBrCopy').onclick=async()=>{
+  const v=$('#brUrl').value;
+  try{ await navigator.clipboard.writeText(v); toast('网址已复制，请粘贴到 Edge 浏览器打开'); }
+  catch(e){
+    const t=document.createElement('textarea'); t.value=v; document.body.appendChild(t); t.select();
+    try{ document.execCommand('copy'); toast('网址已复制，请粘贴到 Edge 浏览器打开'); }
+    catch(e2){ toast('复制失败，请手动复制地址栏网址'); }
+    t.remove();
+  }
+};
+$('#btnBrGo').onclick=()=>{ try{ localStorage.setItem('bTipOk','1'); }catch(e){} $('#browserTip').style.display='none'; };
 
 /* ---------- 判分 ---------- */
 function norm(s){
@@ -1241,6 +1306,7 @@ $$('.tab').forEach(t=>t.addEventListener('click',()=>switchPage(t.dataset.page))
 /* ---------- 启动 ---------- */
 renderBanks();
 bindSettings();
+browserTipShow();
 renderHistory();
 </script>
 </body>
