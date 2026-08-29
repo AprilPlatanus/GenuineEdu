@@ -703,6 +703,41 @@ function looksLikeAudio(buf){
 let _tOnce=0;
 function toastOnce(msg){ const n=Date.now(); if(n-_tOnce<2500) return; _tOnce=n; toast(msg); }
 
+/* ---------- 合成结果缓存：同一词只合成一次，重播零请求（防限流/降延迟的核心） ---------- */
+const ttsCache=new Map(); /* key -> blob URL */
+let proxyLimitedUntil=0;  /* 代理被限流后 60 秒内直接走直连，不再做无谓重试 */
+const ttsKey=t=>[t,settings.accent||'US',settings.gender||'female',settings.rate||1].join('|');
+function cachePut(key,blobUrl){
+  try{
+    if(ttsCache.has(key)) return;
+    ttsCache.set(key,blobUrl);
+    if(ttsCache.size>200){ /* FIFO 淘汰最旧的 */
+      const k=ttsCache.keys().next().value, old=ttsCache.get(k);
+      ttsCache.delete(k);
+      try{ if(old&&old.indexOf('blob:')===0&&(!currentAudio||currentAudio.src!==old)) URL.revokeObjectURL(old); }catch(e){}
+    }
+  }catch(e){}
+}
+/* 静默预取：不播放，只把合成结果放进缓存 */
+function prefetchTTS(text){
+  const key=ttsKey(text);
+  if(ttsCache.has(key)) return;
+  if(Date.now()<proxyLimitedUntil) return;
+  const base=(settings.ttsBase||'').trim().replace(/\/+$/,''); if(!base) return;
+  const url=`${base}/tts?text=${encodeURIComponent(text)}&accent=${encodeURIComponent(settings.accent||'US')}&gender=${encodeURIComponent(settings.gender||'female')}&rate=${encodeURIComponent(settings.rate||1)}`;
+  fetch(url,{mode:'cors',credentials:'omit'}).then(async r=>{
+    if(!r.ok) throw new Error('http '+r.status);
+    const buf=await r.arrayBuffer(); let bytes;
+    if(looksLikeAudio(buf)) bytes=buf;
+    else{
+      const txt=new TextDecoder().decode(buf).trim();
+      if(txt.length>100&&/^[A-Za-z0-9+/=\s]+$/.test(txt)&&txt.length%4===0) bytes=base64ToBytes(txt);
+      else throw new Error('bad');
+    }
+    cachePut(key,URL.createObjectURL(new Blob([bytes],{type:'audio/mpeg'})));
+  }).catch(()=>{});
+}
+
 let currentAudio=null;
 function stopCurrentAudio(){
   if(!currentAudio) return;
@@ -733,16 +768,21 @@ function playAudio(url,onStart,onDone){
   a.src=url;
   setTimeout(kick,400);
   setTimeout(()=>{ if(!playing&&!done) retry(); },2500);
-  setTimeout(()=>{ if(!playing&&!done) finish(false); },4500);
-  setTimeout(()=>{ if(!done){ if(!started) begin(); finish(false); } },12000);
+  setTimeout(()=>{ if(!playing&&!done) finish(false); },8000); /* 慢网络误判保护：4.5s→8s */
+  setTimeout(()=>{ if(!done){ if(!started) begin(); finish(false); } },10000);
   return a;
 }
-/* 代理合成（text/plain+base64 与 二进制 两种返回都兼容） */
+/* 代理合成（text/plain+base64 与 二进制 两种返回都兼容；优先命中缓存） */
 function speakEdge(text,onDone,onStart){
+  const key=ttsKey(text);
+  const hit=ttsCache.get(key);
+  if(hit){ playAudio(hit,onStart,ok=>{ if(!ok) toastOnce('发音播放失败'); onDone(ok); }); return; }
+  if(Date.now()<proxyLimitedUntil){ onDone(false); return; } /* 限流窗口内不再撞代理 */
   const base=(settings.ttsBase||'').trim().replace(/\/+$/,'');
   if(!base){ toast('未配置发音代理，无法合成托福标准音'); return onDone(false); }
   const url=`${base}/tts?text=${encodeURIComponent(text)}&accent=${encodeURIComponent(settings.accent||'US')}&gender=${encodeURIComponent(settings.gender||'female')}&rate=${encodeURIComponent(settings.rate||1)}`;
-  const tryFetch=attempt=>fetch(url,{mode:'cors',credentials:'omit',cache:'default'}).then(async r=>{
+  const tryFetch=attempt=>fetch(url,{mode:'cors',credentials:'omit'}).then(async r=>{
+    if(r.status===429){ proxyLimitedUntil=Date.now()+60000; throw new Error('limited'); }
     if(!r.ok) throw new Error('http '+r.status);
     const buf=await r.arrayBuffer();
     let bytes;
@@ -752,13 +792,19 @@ function speakEdge(text,onDone,onStart){
       if(txt.length>100&&/^[A-Za-z0-9+/=\s]+$/.test(txt)&&txt.length%4===0) bytes=base64ToBytes(txt);
       else throw new Error('代理返回内容无法识别');
     }
-    return new Promise(res=>playAudio(URL.createObjectURL(new Blob([bytes],{type:'audio/mpeg'})),onStart,ok=>{
+    const u=URL.createObjectURL(new Blob([bytes],{type:'audio/mpeg'})); cachePut(key,u);
+    return new Promise(res=>playAudio(u,onStart,ok=>{
       if(!ok) toastOnce('发音播放失败'); res(ok); }));
   }).catch(e=>{
-    if(attempt<2) return new Promise(res=>setTimeout(()=>res(tryFetch(attempt+1)),600));
+    if(e&&e.message==='limited') throw e; /* 限流不重试，立即切直连 */
+    if(attempt<1) return new Promise(res=>setTimeout(()=>res(tryFetch(attempt+1)),500));
     throw e;
   });
-  tryFetch(0).then(ok=>onDone(ok)).catch(e=>{ toastOnce('发音代理不可用：'+(e.message||'网络错误')); onDone(false); });
+  tryFetch(0).then(ok=>onDone(ok)).catch(e=>{
+    if(e&&e.message==='limited') toastOnce('代理限流，改用浏览器直连发音');
+    else toastOnce('发音代理不可用：'+(e.message||'网络错误'));
+    onDone(false);
+  });
 }
 /* 浏览器直连 Edge wss（代理故障时的兜底，音色与代理一致） */
 function speakEdgeDirect(text,onDone,onStart){
@@ -799,17 +845,34 @@ function speakEdgeDirect(text,onDone,onStart){
     else onDone(false);
   };
 }
-/* 调度：代理优先，失败自动切直连 */
+/* 最后兜底：系统本地合成（音色普通，但保证任何网络/代理故障下都有声音） */
+function speakLocal(text,onDone,onStart){
+  try{
+    if(!window.speechSynthesis){ if(onStart) onStart(); if(onDone) onDone(); return; }
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang='en-US'; u.rate=Math.min(1.6,Math.max(0.5,Number(settings.rate)||1));
+    try{
+      const vs=speechSynthesis.getVoices().filter(v=>/^en([-_]|$)/i.test(v.lang));
+      if(vs.length) u.voice=vs.find(v=>/US/i.test(v.lang))||vs[0];
+    }catch(e){}
+    u.onstart=()=>{ if(onStart) onStart(); };
+    u.onend=()=>{ if(onDone) onDone(); };
+    u.onerror=()=>{ if(onStart) onStart(); if(onDone) onDone(); };
+    speechSynthesis.speak(u);
+  }catch(e){ if(onStart) onStart(); if(onDone) onDone(); }
+}
+/* 调度：缓存 → 代理 → 直连 → 系统合成 */
 function speak(text,onDone,onStart){
   let i=0, used=false, started=false;
-  const chain=[speakEdge, speakEdgeDirect];
+  const chain=[speakEdge, speakEdgeDirect, speakLocal];
   const startOnce=()=>{ if(started) return; started=true; if(onStart) onStart(); };
   const step=ok=>{
     if(used) return; used=true;
     if(ok){ if(onDone) onDone(); return; }
     i++;
-    if(i>=chain.length){ if(onDone) onDone(); return; }
-    toastOnce('代理不可用，改用浏览器直连发音');
+    if(i>=chain.length){ startOnce(); if(onDone) onDone(); return; }
+    if(i===1) toastOnce('代理不可用，改用浏览器直连发音');
+    if(i===2) toastOnce('直连失败，改用系统合成发音');
     used=false; chain[i](text,step,startOnce);
   };
   chain[0](text,step,startOnce);
@@ -821,11 +884,14 @@ function unlockAudio(){
     a.volume=0.001; a.play().catch(()=>{});
   }catch(e){}
 }
-/* 预热前若干词 */
+/* 预热前几词（间隔发车，避免全班瞬间并发撞限流），其余词在答题过程中滚动预取 */
 function prewarm(){
-  const base=(settings.ttsBase||'').trim().replace(/\/+$/,''); if(!base) return;
-  const u=`${base}/tts?accent=${encodeURIComponent(settings.accent||'US')}&gender=${encodeURIComponent(settings.gender||'female')}&rate=${encodeURIComponent(settings.rate||1)}&text=`;
-  Q.list.slice(0,12).forEach((w,idx)=>setTimeout(()=>{ try{ fetch(u+encodeURIComponent(w.en),{cache:'force-cache'}).catch(()=>{}); }catch(e){} },idx*120));
+  if(!Q.list||!Q.list.length) return;
+  Q.list.slice(0,3).forEach((w,idx)=>setTimeout(()=>prefetchTTS(w.en),idx*400));
+}
+function prefetchNext(){
+  if(!Q||!Q.list||!Q.list[Q.i+1]) return;
+  setTimeout(()=>{ try{ prefetchTTS(Q.list[Q.i+1].en); }catch(e){} },800);
 }
 
 /* ---------- 语音识别 ---------- */
@@ -1061,6 +1127,7 @@ function nextQuestion(){
     $('#ringBar').style.strokeDashoffset=0; $('#ring').classList.remove('warn','danger');
   }
   Q.t0=Date.now();
+  prefetchNext();
   playWord(beginTimer);
   Q.timerFallback=setTimeout(beginTimer,6000); /* 全部音源失效时兜底开表 */
 }
