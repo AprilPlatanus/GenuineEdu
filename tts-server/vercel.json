@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "buildCommand": "pip install -r requirements.txt",
+  "rewrites": [
+    { "source": "/tts", "destination": "/api/tts" },
+    { "source": "/health", "destination": "/api/tts" }
+  ]
+}
