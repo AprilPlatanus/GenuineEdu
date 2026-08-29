@@ -757,7 +757,7 @@ function prewarm(){
 
 /* ---------- 语音识别 ---------- */
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-let rec=null, recording=false;
+let rec=null, recording=false, recErrShown=false;
 if(!SR){ $('#btnMic').disabled=true; $('#btnMic').title='当前浏览器不支持（请用 Chrome / Edge）'; }
 function startRec(){
   if(recording){ stopRec(); return; }
@@ -765,7 +765,7 @@ function startRec(){
   try{ rec=new SR(); }catch(e){ toast('无法启动麦克风'); return; }
   rec.lang='zh-CN'; rec.interimResults=true; rec.continuous=false; rec.maxAlternatives=3;
   rec.onstart=()=>{
-    recording=true;
+    recording=true; recErrShown=false;
     $('#btnMic').classList.add('primary');
     $('#hintLine').textContent='正在聆听…请说出释义'; $('#hintLine').classList.add('rec');
   };
@@ -792,6 +792,7 @@ function startRec(){
               : ev.error==='network'     ? '识别服务不可用，请改用打字输入'
               : '识别出错：'+ev.error;
     $('#hintLine').textContent=msg;
+    recErrShown=true;
     if(['no-speech','audio-capture','aborted'].includes(ev.error)&&!Q.locked&&!Q.finish&&(Q.recRestarts||0)<4){
       Q.recRestarts=(Q.recRestarts||0)+1;
       $('#hintLine').textContent=msg+'，正在重新聆听（'+Q.recRestarts+'/4）…';
@@ -801,7 +802,8 @@ function startRec(){
   };
   rec.onend=()=>{
     recording=false; $('#btnMic').classList.remove('primary'); $('#hintLine').classList.remove('rec');
-    if(!$('#hintLine').textContent.includes('已识别'))
+    /* 出错提示（权限被拒、无法开麦等）不要被默认文案覆盖 */
+    if(!recErrShown&&!$('#hintLine').textContent.includes('已识别'))
       $('#hintLine').textContent='说出释义，识别后自动提交';
   };
   try{ rec.start(); }catch(e){ toast('麦克风启动失败'); }
