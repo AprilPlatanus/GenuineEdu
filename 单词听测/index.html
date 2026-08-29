@@ -306,7 +306,15 @@ tbody tr:hover{background:#fafbfe}
               <button data-m="text" class="on">打字输入</button>
               <button data-m="voice">语音输入</button>
             </div>
-            <div class="tiny" style="margin-top:6px">语音输入：发音结束后自动开始聆听，识别到答案自动提交（识别不顺时也可随时打字按 Enter）。需 Chrome / Edge 并允许麦克风；蓝牙耳机偶尔切不过来，多试几次或改打字即可。</div>
+            <div class="tiny" style="margin-top:6px">语音输入：发音结束后自动开始聆听，识别到答案自动提交（识别不顺时也可随时打字按 Enter）。开始前建议先做下方语音识别测试；蓝牙耳机偶尔切不过来，多试几次或改打字即可。</div>
+          </div>
+          <div id="micTest" style="display:none;margin:-4px 0 14px;border:1px dashed #c9d5f5;border-radius:10px;padding:11px 13px;background:#f8faff">
+            <div class="row" style="justify-content:space-between;margin-bottom:4px">
+              <b style="font-size:13px">语音识别测试 <span class="tiny">（正式测试前的设备自检）</span></b>
+              <button class="btn sm primary" id="btnMicTest">开始检测</button>
+            </div>
+            <div class="tiny" id="micTestStatus">点击「开始检测」，然后对着麦克风说一句：「今天天气不错」——下方能出字即代表设备可用于语音答题。</div>
+            <div id="micTestText" style="font-size:15px;font-weight:700;min-height:20px;color:var(--brand);margin-top:2px;word-break:break-all"></div>
           </div>
           <div class="row" style="gap:18px">
             <label class="chk"><input type="checkbox" id="chkAutoNext" checked> 自动进入下一题</label>
@@ -813,6 +821,65 @@ $('#btnMic').onclick=startRec;
 /* 语音模式下学生改为手动打字时，停止自动聆听，避免识别结果覆盖输入 */
 $('#answerInput').addEventListener('input',()=>{ if(recording&&Q.mode==='voice') stopRec(); });
 
+/* ---------- 语音识别测试（正式测试前的设备自检） ---------- */
+let mtRec=null, mtRunning=false, mtTimer=0, mtGot=false, mtErr=false;
+function micTestSet(html, ok){
+  const el=$('#micTestStatus');
+  el.innerHTML=html;
+  el.style.color= ok===true?'var(--ok)': ok===false?'var(--bad)':'var(--ink2)';
+}
+function micTestResetBtn(){ const b=$('#btnMicTest'); b.textContent='开始检测'; b.classList.add('primary'); }
+function micTestStart(){
+  if(mtRunning){ mtRunning=false; clearTimeout(mtTimer); try{ mtRec.stop(); }catch(e){} micTestResetBtn(); micTestSet('已停止。可再次点击「开始检测」。'); return; }
+  if(!SR){ micTestSet('当前浏览器不支持语音识别（需 Chrome / Edge）。已自动改用打字输入。', false); return; }
+  if(location.protocol!=='https:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1'){
+    micTestSet('语音识别要求 HTTPS 环境，请通过线上地址打开本页再检测。', false); return;
+  }
+  try{ mtRec=new SR(); }catch(e){ micTestSet('无法启动麦克风。', false); return; }
+  mtRec.lang='zh-CN'; mtRec.interimResults=true; mtRec.continuous=false;
+  mtRunning=true; mtGot=false; mtErr=false;
+  const btn=$('#btnMicTest'); btn.textContent='停止'; btn.classList.remove('primary');
+  micTestSet('正在聆听…请对着麦克风说一句：「今天天气不错」');
+  $('#micTestText').textContent='';
+  mtTimer=setTimeout(()=>{ if(mtRunning){ mtRunning=false; try{ mtRec.stop(); }catch(e){} micTestResetBtn(); } },15000);
+  mtRec.onresult=e=>{
+    let final='',interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal) final+=t; else interim+=t;
+    }
+    if(interim) $('#micTestText').textContent=interim;
+    if(final){
+      mtGot=true;
+      $('#micTestText').textContent='识别结果：'+final.trim();
+      settings.micOk=Date.now(); saveSettings();
+      micTestSet('✓ 识别正常！设备可用于语音答题。'+(final.trim().includes('天气')?'':'（识别文字与示例不同也没关系，能出字即可）'), true);
+      mtRunning=false; clearTimeout(mtTimer); try{ mtRec.stop(); }catch(e){} micTestResetBtn();
+    }
+  };
+  mtRec.onerror=ev=>{
+    mtErr=true;
+    const msg = ev.error==='not-allowed' ? '麦克风权限被拒绝：请允许浏览器使用麦克风后重新检测'
+              : ev.error==='audio-capture'? '无法打开麦克风：请检查系统输入设备（蓝牙耳机需切换到免提模式）'
+              : ev.error==='network'     ? '识别服务不可用：请检查网络，正式测试时建议改用打字输入'
+              : ev.error==='no-speech'   ? '没有听到声音：请离麦克风近一点，再点一次「开始检测」'
+              : '识别出错：'+ev.error;
+    micTestSet(msg, false);
+  };
+  mtRec.onend=()=>{
+    if(mtRunning){ mtRunning=false; micTestResetBtn(); }
+    clearTimeout(mtTimer);
+    if(!mtGot&&!mtErr) micTestSet('没有听到声音，请再试一次。', false);
+  };
+  try{ mtRec.start(); }catch(e){ mtRunning=false; micTestResetBtn(); micTestSet('麦克风启动失败，请重试。', false); }
+}
+$('#btnMicTest').onclick=micTestStart;
+function updateMicTest(){
+  const on=settings.mode==='voice';
+  $('#micTest').style.display=on?'':'none';
+  if(on&&settings.micOk) $('#micTestStatus').innerHTML='上次检测：<b style="color:var(--ok)">通过</b>（'+fmtD(settings.micOk)+'）。可直接开始，也可再次检测。';
+}
+
 /* ---------- 设置 ---------- */
 function bindSettings(){
   $('#studentName').value=settings.student||'';
@@ -825,7 +892,7 @@ function bindSettings(){
   $('#chkAutoNext').checked=settings.autoNext; $('#chkShowAns').checked=settings.showAns;
   $$('#segMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===settings.mode));
   $$('#segGender button').forEach(b=>b.classList.toggle('on',b.dataset.g===settings.gender));
-  updateSummary();
+  updateSummary(); updateMicTest();
 }
 function readSettings(){
   settings.student=$('#studentName').value.trim();
@@ -837,7 +904,7 @@ function readSettings(){
   settings.autoNext=$('#chkAutoNext').checked; settings.showAns=$('#chkShowAns').checked;
   const mb=$('#segMode .on'); settings.mode=mb?mb.dataset.m:'text';
   const gb=$('#segGender .on'); settings.gender=gb?gb.dataset.g:'female';
-  saveSettings(); updateSummary();
+  saveSettings(); updateSummary(); updateMicTest();
 }
 ['#studentName','#selBank','#selTime','#selCount','#selOrder','#selAccent','#selReplay','#selStrict']
   .forEach(s=>$(s).addEventListener('change',readSettings));
@@ -871,6 +938,9 @@ function startQuiz(){
   if(!b||!b.words.length){ toast('词库为空，请先导入单词'); return; }
   let mode=settings.mode;
   if(mode==='voice'&&!SR){ toast('当前浏览器不支持语音识别，已改用打字输入'); mode='text'; }
+  if(mode==='voice'&&!settings.micOk){
+    if(!confirm('尚未通过语音识别测试，当前设备可能无法识别语音。\n建议先点「开始检测」确认麦克风正常。\n\n仍要直接开始吗？')) return;
+  }
   let list=b.words.slice();
   if(settings.order==='rand') list=shuffle(list);
   const c=Number(settings.count);
