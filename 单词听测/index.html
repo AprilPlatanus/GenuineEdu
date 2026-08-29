@@ -306,7 +306,7 @@ tbody tr:hover{background:#fafbfe}
               <button data-m="text" class="on">打字输入</button>
               <button data-m="voice">语音输入</button>
             </div>
-            <div class="tiny" style="margin-top:6px">语音输入：发音结束后自动开始聆听，识别到答案自动提交（识别不顺时也可随时打字按 Enter）。开始前建议先做下方语音识别测试；蓝牙耳机偶尔切不过来，多试几次或改打字即可。</div>
+            <div class="tiny" style="margin-top:6px">语音输入：发音结束后自动开始聆听，识别到答案自动提交（识别不顺时也可随时打字按 Enter）。开始前建议先做下方语音识别测试。注意：Chrome 的语音识别需连接谷歌服务器，国内网络会失败，请改用 Edge 浏览器；蓝牙耳机偶尔切不过来，多试几次或改打字即可。</div>
           </div>
           <div id="micTest" style="display:none;margin:-4px 0 14px;border:1px dashed #c9d5f5;border-radius:10px;padding:11px 13px;background:#f8faff">
             <div class="row" style="justify-content:space-between;margin-bottom:4px">
@@ -797,7 +797,7 @@ function startRec(){
     const msg = ev.error==='not-allowed' ? '麦克风权限被拒绝：请允许浏览器使用麦克风'
               : ev.error==='no-speech'   ? '没有听到声音'
               : ev.error==='audio-capture'? '无法打开麦克风：请检查系统输入设备'
-              : ev.error==='network'     ? '识别服务不可用，请改用打字输入'
+              : ev.error==='network'     ? '识别服务不可用：Chrome 需连谷歌服务器（国内不通），请改用 Edge 浏览器或打字输入'
               : '识别出错：'+ev.error;
     $('#hintLine').textContent=msg;
     recErrShown=true;
@@ -861,7 +861,7 @@ function micTestStart(){
     mtErr=true;
     const msg = ev.error==='not-allowed' ? '麦克风权限被拒绝：请允许浏览器使用麦克风后重新检测'
               : ev.error==='audio-capture'? '无法打开麦克风：请检查系统输入设备（蓝牙耳机需切换到免提模式）'
-              : ev.error==='network'     ? '识别服务不可用：请检查网络，正式测试时建议改用打字输入'
+              : ev.error==='network'     ? '识别服务连不上：Chrome 的语音识别需访问谷歌服务器（国内网络不通）。请改用 Edge 浏览器再检测；正式测试也可用打字输入'
               : ev.error==='no-speech'   ? '没有听到声音：请离麦克风近一点，再点一次「开始检测」'
               : '识别出错：'+ev.error;
     micTestSet(msg, false);
