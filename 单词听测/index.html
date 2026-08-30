@@ -306,7 +306,7 @@ tbody tr:hover{background:#fafbfe}
               <button data-m="text" class="on">打字输入</button>
               <button data-m="voice">语音输入</button>
             </div>
-            <div class="tiny" style="margin-top:6px">语音输入：发音结束后自动开始聆听，识别到答案自动提交（识别不顺时也可随时打字按 Enter）。开始前建议先做下方语音识别测试。注意：Chrome 的语音识别需连接谷歌服务器，国内网络会失败，请改用 Edge 浏览器；蓝牙耳机偶尔切不过来，多试几次或改打字即可。</div>
+            <div class="tiny" style="margin-top:6px">语音输入：发音结束后自动开始聆听，识别到答案自动提交（识别不顺时也可随时打字按 Enter）。支持 Edge / Chrome / Safari（14.1+），开始前建议先做下方语音识别测试。注意：Chrome 的语音识别需连接谷歌服务器，国内网络会失败，请改用 Edge 或 Safari（Safari 首次使用需在系统弹窗允许「语音识别」）；蓝牙耳机偶尔切不过来，多试几次或改打字即可。</div>
           </div>
           <div id="micTest" style="display:none;margin:-4px 0 14px;border:1px dashed #c9d5f5;border-radius:10px;padding:11px 13px;background:#f8faff">
             <div class="row" style="justify-content:space-between;margin-bottom:4px">
@@ -441,8 +441,8 @@ tbody tr:hover{background:#fafbfe}
       </div>
     </div>
     <div class="tiny" style="line-height:1.8">
-      · 本页的<b>语音答题</b>仅支持 Edge 与 Chrome，当前浏览器无法使用；<b>打字输入不受影响</b>。<br>
-      · 国内网络语音答题<b>推荐用 Microsoft Edge</b>（Chrome 的语音识别需连接谷歌服务器，国内无法使用）。<br>
+      · 本页的<b>语音答题</b>需使用 Edge、Chrome 或 Safari（macOS 14.1+ / iOS 14.5+），当前浏览器无法使用；<b>打字输入不受影响</b>。<br>
+      · 国内网络<b>推荐用 Microsoft Edge 或 Safari</b>（Chrome 的语音识别需连接谷歌服务器，国内无法使用）。<br>
       · 复制下方网址，粘贴到 Edge 浏览器打开即可。
     </div>
     <div class="row" style="gap:8px;margin-top:12px">
@@ -491,7 +491,7 @@ function detectBrowser(){
   if(/VivoBrowser/i.test(ua))    return {ok:false,name:'vivo 浏览器'};
   if(/Firefox\//.test(ua))       return {ok:false,name:'Firefox'};
   if(/CriOS\//.test(ua))         return {ok:false,name:'Chrome for iOS（不支持语音识别）'};
-  if(/Safari\//.test(ua)&&/Version\//.test(ua)) return {ok:false,name:'Safari'};
+  if(/Safari\//.test(ua)&&/Version\//.test(ua)) return {ok:true,name:'Safari'}; /* macOS 14.1+ / iOS 14.5+ 支持语音识别，走苹果服务器国内可用 */
   if(/Chrome\//.test(ua))        return {ok:true,name:'Chrome'};
   return {ok:false,name:'当前浏览器'};
 }
@@ -945,7 +945,7 @@ function startRec(){
     if(!recErrShown&&!$('#hintLine').textContent.includes('已识别'))
       $('#hintLine').textContent='说出释义，识别后自动提交';
   };
-  try{ rec.start(); }catch(e){ toast('麦克风启动失败'); }
+  try{ rec.start(); }catch(e){ toast('请点「语音回答」按钮手动开始聆听'); }
 }
 function stopRec(){ if(rec&&recording){ try{ rec.stop(); }catch(e){} } }
 $('#btnMic').onclick=startRec;
@@ -990,7 +990,7 @@ function micTestStart(){
   };
   mtRec.onerror=ev=>{
     mtErr=true;
-    const msg = ev.error==='not-allowed' ? '麦克风权限被拒绝：请允许浏览器使用麦克风后重新检测'
+    const msg = ev.error==='not-allowed' ? '麦克风/语音识别权限被拒绝：请允许后重试（Safari 需在系统设置「隐私与安全性→语音识别」中允许）'
               : ev.error==='audio-capture'? '无法打开麦克风：请检查系统输入设备（蓝牙耳机需切换到免提模式）'
               : ev.error==='network'     ? '识别服务连不上：Chrome 的语音识别需访问谷歌服务器（国内网络不通）。请改用 Edge 浏览器再检测；正式测试也可用打字输入'
               : ev.error==='no-speech'   ? '没有听到声音：请离麦克风近一点，再点一次「开始检测」'
